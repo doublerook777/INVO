@@ -155,31 +155,52 @@ def _process_items(shop_id, sender, items, direction, actions=None):
 def _answer_pending(shop_id, sender, text, pending):
     """User just answered a clarifying question.
 
-    Returns None if `text` doesn't actually look like an answer to the
+    Returns (result, abandoned_actions).
+
+    `result` is None if `text` doesn't actually look like an answer to the
     pending question (an empty message, a stray "sku:abc", a completely
-    unrelated sentence). The caller then treats it as a brand-new message
+    unrelated sentence, or a row from a schema this build no longer
+    understands). The caller then treats `text` as a brand-new message
     instead of silently discarding what the user actually said.
+
+    `abandoned_actions` carries any movements that were already booked
+    earlier in the *same original message* (before the question came up).
+    Those writes already happened -- losing their confirmation when we move
+    on to something else would make it look like nothing happened when
+    something did. The caller folds these into whatever reply comes next.
     """
-    payload = json.loads(pending["raw_item_json"])
-    candidates = json.loads(pending["candidates_json"])
-    reason = payload["reason"]
-    item = payload["item"]
-    remaining = payload["remaining"]
-    actions_so_far = payload["actions_so_far"]
+    # Clear first, before touching the payload at all. A row saved by an
+    # older build (a different payload shape) must not wedge this sender
+    # with the same crash on every message forever -- if we can't make sense
+    # of it, abandon it and treat the incoming text as a fresh message.
+    _clear_pending(shop_id, sender)
+    try:
+        payload = json.loads(pending["raw_item_json"])
+        candidates = json.loads(pending["candidates_json"])
+        reason = payload["reason"]
+        item = payload["item"]
+        remaining = payload["remaining"]
+        actions_so_far = payload["actions_so_far"]
+    except (KeyError, TypeError, ValueError) as e:
+        log("pipeline: stale/unreadable pending row, dropping it:", e)
+        return None, []
+
     direction = item.get("direction", "in")
     choice = (text or "").strip().lower()
 
-    # Cleared unconditionally, even on the "fall through" paths below -- once
-    # a message doesn't look like a real answer, the question is abandoned,
-    # not left lingering to be silently re-tried against the next message.
-    _clear_pending(shop_id, sender)
-
     if choice and choice in CANCEL_WORDS:
-        reply_text = reply.cancelled()
-        if actions_so_far:
-            reply_text = reply.confirm(actions_so_far) + "\n" + reply_text
-        return {"reply": reply_text, "needs_answer": False, "actions": actions_so_far,
-                "debug": {"matched_via": "cancelled"}}
+        # Cancel means "skip the item being asked about", not "abandon the
+        # rest of the message" -- "do amul aaye aur das maggi aaye" then
+        # "cancel" should still book the Maggi.
+        if not remaining and not actions_so_far:
+            return {"reply": reply.cancelled(), "needs_answer": False, "actions": [],
+                    "debug": {"matched_via": "cancelled"}}, []
+        result = _process_items(shop_id, sender, remaining, direction, actions_so_far)
+        if not result.get("needs_answer"):
+            skip_note = f"'{item['name']}' skip kar diya."
+            result["reply"] = f"{skip_note}\n{result['reply']}"
+        result.setdefault("debug", {})["matched_via"] = "cancelled"
+        return result, []
 
     if reason == "unit_ask":
         if choice and choice in UNIT_CONFIRM_WORDS:
@@ -189,9 +210,10 @@ def _answer_pending(shop_id, sender, text, pending):
             action = inventory.apply_movement(
                 shop_id, sku, direction, item["qty"], sku["canonical_unit"],
                 item.get("price_rupees"))
-            return _process_items(shop_id, sender, remaining, direction,
-                                   actions_so_far + [action])
-        return None  # not a recognized answer -- fall through, don't swallow it
+            result = _process_items(shop_id, sender, remaining, direction,
+                                     actions_so_far + [action])
+            return result, []
+        return None, actions_so_far  # not a recognized answer -- fall through
 
     # reason is "sku_ask" or "new_offer"
     sku, created = None, False
@@ -202,7 +224,7 @@ def _answer_pending(shop_id, sender, text, pending):
         try:
             sku_id = int(choice[4:])
         except ValueError:
-            return None  # "sku:abc" -- not a real answer, don't crash on it
+            return None, actions_so_far  # "sku:abc" -- not a real answer
         sku = db.query_one("SELECT * FROM skus WHERE id = ?", (sku_id,))
     elif choice:  # guard empty string -- "" is a substring of everything
         for c in candidates:
@@ -211,7 +233,7 @@ def _answer_pending(shop_id, sender, text, pending):
                 break
 
     if not sku:
-        return None  # didn't match anything -- fall through, don't swallow it
+        return None, actions_so_far  # didn't match anything -- fall through
 
     resolver.learn_alias(shop_id, sku["id"], item["name"])
     log(f"learned alias: '{item['name']}' -> {sku['name']}")
@@ -226,7 +248,7 @@ def _answer_pending(shop_id, sender, text, pending):
         else:
             result["reply"] += f"\nAb se '{item['name']}' yaad rahega."
     result.setdefault("debug", {})["matched_via"] = "new_sku" if created else "user_answer"
-    return result
+    return result, []
 
 
 def handle_message(shop_id, sender, text=None, transcript=None):
@@ -234,9 +256,10 @@ def handle_message(shop_id, sender, text=None, transcript=None):
     body = text or transcript or ""
     _log_message(shop_id, sender, "in", body)
 
+    abandoned = []
     pending = _get_pending(shop_id, sender)
     if pending:
-        result = _answer_pending(shop_id, sender, body, pending)
+        result, abandoned = _answer_pending(shop_id, sender, body, pending)
         if result is not None:
             result["transcript"] = transcript
             _log_message(shop_id, sender, "out", result["reply"])
@@ -244,7 +267,10 @@ def handle_message(shop_id, sender, text=None, transcript=None):
         # Didn't look like an answer at all -- the user moved on to
         # something else. Process it as a fresh message instead of
         # discarding it; the old question is already gone (_answer_pending
-        # cleared it whenever it decided not to match).
+        # cleared it whenever it decided not to match). `abandoned` is any
+        # movement that was already booked earlier in the old message --
+        # those writes happened, so their confirmation rides along with
+        # whatever this fresh message turns into below, instead of vanishing.
 
     parsed = extract_mod.extract(body)
 
@@ -258,14 +284,16 @@ def handle_message(shop_id, sender, text=None, transcript=None):
             "debug": {"intent": parsed["intent"], "matched_via": "none",
                       "extract_source": parsed.get("_source")},
         }
-        out["transcript"] = transcript
-        _log_message(shop_id, sender, "out", out["reply"])
-        return out
+    else:
+        direction = "out" if parsed["intent"] == "stock_out" else "in"
+        out = _process_items(shop_id, sender, parsed.get("items", []), direction)
+        out["debug"]["intent"] = parsed["intent"]
+        out["debug"]["extract_source"] = parsed.get("_source")
 
-    direction = "out" if parsed["intent"] == "stock_out" else "in"
-    out = _process_items(shop_id, sender, parsed.get("items", []), direction)
-    out["debug"]["intent"] = parsed["intent"]
-    out["debug"]["extract_source"] = parsed.get("_source")
+    if abandoned:
+        out["reply"] = f"{reply.confirm(abandoned)}\n{out['reply']}"
+        out["actions"] = abandoned + out["actions"]
+
     out["transcript"] = transcript
     _log_message(shop_id, sender, "out", out["reply"])
     return out

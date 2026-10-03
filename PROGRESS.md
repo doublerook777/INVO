@@ -12,9 +12,9 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 
 | | Dev A (Ayush) — backend brain | Dev B — interface & edges |
 |---|---|---|
-| Current task | Second review pass fixed: key leak, pending-answer logic, blocking I/O, atomicity — see below | `routes/whatsapp.py`, `ocr.py` — see punch list below |
+| Current task | Backend solid through 3 review passes. Moving to Sarvam verification (need a key + voice note) | `routes/whatsapp.py`, `ocr.py` — see punch list below |
 | Blocked on | nothing | needs `SARVAM_API_KEY` + a real voice note to finish verifying `asr.py` |
-| Last commit | Fixed a confirmed key leak + 9 more real bugs from Dev B's second review | initial scaffold |
+| Last commit | Fixed 3 more pending-answer bugs from Dev B's third review pass | initial scaffold |
 
 **Overall: T+0:00. Working skeleton committed and tested end to end.**
 
@@ -68,6 +68,11 @@ Verified working right now:
   - A query (`"kitna stock bacha hai"`) or any non-movement intent could still carry a parsed item from a bad parse (`"2 kg aata chahiye"` → "I need 2kg atta" parsed an item) and got silently booked as stock-in regardless. Gated: only `stock_in`/`stock_out` intents ever reach the resolver now; a real `query` intent gets an honest reply pointing at the dashboard instead of "samajh nahi aaya".
   - `unit_confident=False` used to be purely cosmetic — a footnote in the reply, while the write happened anyway with a possibly-wrong conversion. `units.py`'s own docstring already said "the caller should ask the user rather than guess"; nobody had implemented that part. Now it does: an unrecognized unit asks for confirmation before writing anything, reusing the same pending-ask machinery as SKU disambiguation.
   - `extract()` now tags its own output `_source: "llm"|"rule"` and pipeline surfaces it in `debug.extract_source` — so a silent fallback to rules (e.g. hitting the Gemini quota again) is visible in the API response, not just a log line you have to be watching for.
+- [x] **Three more bugs from Dev B's third pass on `_answer_pending`, all confirmed and fixed:**
+  - A pending row saved by an older build (different payload shape) raised `KeyError` on `payload["reason"]`, and since that happened *before* the row was cleared, every subsequent message from that sender hit the same crash forever. Fixed: clear the row first, parse the payload in a `try/except`, and treat anything unreadable as "not an answer" instead of crashing.
+  - `cancel` used to drop the rest of the message, not just the item being asked about — `"do amul aaye aur das maggi aaye"` then `"cancel"` never booked the Maggi. Fixed: cancel now continues processing the remaining items, with a note naming the specific item that was skipped.
+  - Abandoning a question (sending something that isn't an answer to it) left already-booked actions from earlier in that message with no confirmation — the write happened, the user just never heard about it. Fixed: `_answer_pending` now returns `(result, abandoned_actions)`, and `handle_message` folds any abandoned actions' confirmation into whatever the fresh message turns into next.
+  - All three verified against the real running server: a hand-inserted old-schema row no longer 500s (confirmed the sender's *next* message works too, not just that it doesn't crash); the cancel-with-remaining-items case correctly booked Maggi and left Amul's ledger untouched (checked directly); the abandoned-question case correctly re-surfaced the Parle-G confirmation in the next reply. Re-ran the original 3 demo sentences and the full Playwright suite — still all green.
 - [x] `resolver.py` — **fuzzy auto-accept no longer writes a permanent alias.** It was never confirmed by a human; auto-accepting it each time is fine, silently cementing an unconfirmed guess as a permanent mapping is how one slightly-off match becomes permanently wrong. Aliases are now only written when a human actually answers a clarifying question, or names an item by creating it.
 - [x] `inventory.py` — **`apply_movement` is now atomic.** It was 2-3 separate `db.execute()` calls (each its own connection + commit); a crash between them could leave the ledger and the SKU's `current_qty` out of sync. Now one connection, one commit.
 - [x] `routes/chat.py` — **unknown `shop_id` is now a clean 400**, validated at the boundary, instead of failing deep inside `create_sku` on a foreign-key violation and surfacing as a 500.
@@ -228,4 +233,17 @@ Format: `HH:MM — who — what`
          answers, query-vs-booking, bad shop_id). Re-ran the Playwright
          frontend suite too -- still 10/10, no contract regression from the
          pipeline rewrite.
+02:45 — A — Dev B's third pass on _answer_pending found 3 more real bugs, all
+         fixed: a stale pending row from an older schema crashed that sender
+         forever (payload parsed before clearing, so the row never got
+         removed); cancel dropped the rest of the message instead of just
+         the one item being asked about; abandoning a question lost the
+         confirmation for whatever was already booked earlier in that
+         message (the write still happened, the user just never heard
+         about it). _answer_pending now returns (result, abandoned_actions)
+         so the caller can fold a lost confirmation into whatever comes
+         next. Verified each with the real server: old-schema row no longer
+         wedges the sender, cancel correctly books the item after the one
+         skipped, abandoned question correctly re-confirms what was booked.
+         Next: Sarvam key + a real voice note to finish verifying asr.py.
 ```
