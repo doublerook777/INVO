@@ -9,8 +9,9 @@ can't type both onto one signature.
 """
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
-from .. import asr, ocr
+from .. import asr, db, ocr
 from ..config import DEMO_SHOP_ID, log
 from ..core import pipeline
 
@@ -51,6 +52,12 @@ async def chat(request: Request):
     except Exception as e:
         return _error(400, f"bad request body: {e}")
 
+    # Validate at the boundary: an unknown shop_id used to fail deep inside
+    # create_sku (a foreign-key violation) and surface as a bare 500. Catching
+    # it here means every other function can trust shop_id is real.
+    if not db.query_one("SELECT id FROM shops WHERE id = ?", (shop_id,)):
+        return _error(400, f"unknown shop_id: {shop_id}")
+
     transcript = None
     ocr_text = None
 
@@ -87,7 +94,13 @@ async def chat(request: Request):
 
     log(f"chat from {sender}: {final_text or transcript!r}")
     try:
-        return pipeline.handle_message(shop_id, sender, text=final_text, transcript=transcript)
+        # pipeline.handle_message is sync (sqlite3 + a sync Gemini call with
+        # a 15s timeout) -- calling it directly here would block the entire
+        # asyncio event loop, stalling every other request for as long as
+        # this one takes. Running it in a worker thread frees the loop
+        # immediately without having to rewrite the sync core as async.
+        return await run_in_threadpool(
+            pipeline.handle_message, shop_id, sender, text=final_text, transcript=transcript)
     except Exception as e:
         log("chat: pipeline crashed:", e)
         return _error(500, "internal error, check server log")

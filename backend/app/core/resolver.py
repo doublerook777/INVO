@@ -73,7 +73,14 @@ def resolve(shop_id, raw_name):
             return {"status": ASK, "sku": None, "candidates": tied[:3]}
 
     if best_score >= FUZZY_AUTO_ACCEPT:
-        learn_alias(shop_id, best["id"], name)
+        # Deliberately NOT learned as an alias. This match was never
+        # confirmed by a human -- auto-accepting it on every message is
+        # fine, but writing it to the alias table makes an unconfirmed guess
+        # permanent. A score that's 86 today because of how rapidfuzz scored
+        # one message could just as easily have been a wrong match; aliases
+        # should only be written when a human actually answered (see
+        # pipeline._answer_pending) or when they named the item themselves
+        # by creating it.
         return {"status": FUZZY, "sku": best, "candidates": []}
 
     if best_score >= FUZZY_ASK_FLOOR:

@@ -18,23 +18,31 @@ def create_sku(shop_id, name, unit=""):
 
 
 def apply_movement(shop_id, sku, direction, qty, unit, cost_rupees=None, source="chat"):
-    """Record one stock in/out. Returns the action dict the API contract expects."""
+    """Record one stock in/out, atomically. Returns the action dict the API
+    contract expects.
+
+    All three writes (ledger insert, qty update, optional cost update) share
+    one connection and one commit -- db.execute() opens and commits its own
+    connection per call, which means a crash between two of these three
+    writes could leave the ledger and the SKU's current_qty out of sync.
+    """
     qty_canon, confident = to_canonical(qty, unit, sku["canonical_unit"], sku["name"])
     signed = qty_canon if direction == "in" else -qty_canon
     cost_paise = int(round(cost_rupees * 100)) if cost_rupees is not None else None
 
-    db.execute(
-        """INSERT INTO stock_ledger
-           (shop_id, sku_id, direction, qty_canonical, raw_qty, raw_unit,
-            cost_per_unit, source)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-        (shop_id, sku["id"], direction, qty_canon, qty, unit, cost_paise, source),
-    )
-    db.execute("UPDATE skus SET current_qty = current_qty + ? WHERE id = ?",
-               (signed, sku["id"]))
-    if cost_paise is not None:
-        db.execute("UPDATE skus SET cost_per_unit = ? WHERE id = ?",
-                   (cost_paise, sku["id"]))
+    with db.get_db() as conn:
+        conn.execute(
+            """INSERT INTO stock_ledger
+               (shop_id, sku_id, direction, qty_canonical, raw_qty, raw_unit,
+                cost_per_unit, source)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (shop_id, sku["id"], direction, qty_canon, qty, unit, cost_paise, source),
+        )
+        conn.execute("UPDATE skus SET current_qty = current_qty + ? WHERE id = ?",
+                     (signed, sku["id"]))
+        if cost_paise is not None:
+            conn.execute("UPDATE skus SET cost_per_unit = ? WHERE id = ?",
+                         (cost_paise, sku["id"]))
 
     return {
         "type": f"stock_{direction}",

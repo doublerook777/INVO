@@ -47,3 +47,16 @@ def created_new(sku_name):
 
 def cancelled():
     return "Theek hai, cancel kar diya."
+
+
+def confirm_unit(qty, unit, sku_name, canonical_unit):
+    return (f"'{unit}' samajh nahi aaya. {sku_name} ka hisab {canonical_unit} mein "
+            f"hota hai -- {_fmt(qty)} {canonical_unit} maan loon?")
+
+
+def confirm_unit_label(qty, canonical_unit):
+    return f"Haan, {_fmt(qty)} {canonical_unit} sahi hai"
+
+
+def query_reply():
+    return "Abhi sirf stock add/kam karna samajh aata hai. Current stock dashboard par dekhiye."

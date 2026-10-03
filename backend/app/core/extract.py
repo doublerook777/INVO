@@ -123,6 +123,7 @@ STOP = {
     "ka", "ki", "ke", "rate", "badh", "ghat", "kam", "zyada", "aur", "and",
     "rupaye", "rupees", "rs", "stock", "mein", "me", "se", "par", "ab", "aaj",
     "kal", "sab", "total", "bhi", "to", "tha", "the", "thi", "hua", "hue",
+    "chahiye", "chahie", "mangta", "chaiye",
 }
 
 OUT_PREFIXES = ("bik", "bech")   # bika, bike, bikri, becha, bechi...
@@ -213,9 +214,12 @@ def _llm_extract(text):
             "thinkingConfig": {"thinkingBudget": 0},
         },
     }
+    # The key goes in a header, never a query param. A query param ends up in
+    # httpx's error text (and therefore the server log) on any failed call --
+    # a fake-key test is exactly how that leak got caught.
     resp = httpx.post(
         GEMINI_URL.format(model=GEMINI_MODEL),
-        params={"key": GEMINI_API_KEY},
+        headers={"x-goog-api-key": GEMINI_API_KEY},
         json=body,
         timeout=15,
     )
@@ -235,10 +239,14 @@ def _llm_extract(text):
 
 def extract(text):
     if not text or not text.strip():
-        return {"intent": "unknown", "items": [], "question": None}
+        return {"intent": "unknown", "items": [], "question": None, "_source": "empty"}
     if GEMINI_API_KEY:
         try:
-            return _llm_extract(text)
+            result = _llm_extract(text)
+            result["_source"] = "llm"
+            return result
         except Exception as e:
             log("extract: LLM failed, falling back to rules:", e)
-    return _rule_extract(text)
+    result = _rule_extract(text)
+    result["_source"] = "rule"
+    return result

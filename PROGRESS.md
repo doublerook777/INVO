@@ -12,9 +12,9 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 
 | | Dev A (Ayush) — backend brain | Dev B — interface & edges |
 |---|---|---|
-| Current task | Backend + shared contract solid. Frontend fixed on Dev B's behalf to unblock Screenshot 2 — read `GIT_WORKFLOW.md` before your first commit | `asr.py`, `routes/whatsapp.py`, `ocr.py` — see punch list below |
-| Blocked on | nothing | needs `SARVAM_API_KEY` |
-| Last commit | Frontend bug fixes + GIT_WORKFLOW.md | initial scaffold |
+| Current task | Second review pass fixed: key leak, pending-answer logic, blocking I/O, atomicity — see below | `routes/whatsapp.py`, `ocr.py` — see punch list below |
+| Blocked on | nothing | needs `SARVAM_API_KEY` + a real voice note to finish verifying `asr.py` |
+| Last commit | Fixed a confirmed key leak + 9 more real bugs from Dev B's second review | initial scaffold |
 
 **Overall: T+0:00. Working skeleton committed and tested end to end.**
 
@@ -58,6 +58,20 @@ Verified working right now:
 - [x] `pipeline.py` — all of it wired into `/api/chat`
 - [x] `pipeline.py` / `inventory.py` — **`new` and `cancel` answers now handled.** Previously the "Naya item hai?" offer had nowhere to go — answering it always fell through to "samajh nahi aaya". Added `inventory.create_sku()` and taught `_answer_pending` to create-and-book on `new`, no-op on `cancel`. Also accepts free-text `haan`/`nahi` etc, since WhatsApp sandbox users type, they don't tap buttons.
 - [x] `routes/chat.py` (SHARED) — accepts JSON **or** multipart now (contract always said both; only form-data was implemented). Errors are proper 4xx/5xx with `{"error": ...}`, never a 200 or a bare crash. Upload size capped at 15MB. A bill photo's OCR text no longer silently overwrites typed text in the same message.
+- [x] **Confirmed API key leak, fixed.** `extract.py` sent the Gemini key as `?key=...`. A failed call's error text (and the log line around it) included the full URL with the key in plain text — a fake-key test is exactly how it got caught. Moved to the `x-goog-api-key` header. Verified: a deliberately bad key's error message no longer contains any part of the key, checked programmatically.
+- [x] **`pipeline.py` rewritten** to fix a cluster of related bugs, most found by Dev B's second review:
+  - `"haan"` after a disambiguation question (`"Butter ya Milk?"`) used to match the same loose-synonym list as the real "create new" offer, silently creating a junk SKU and aliasing it forever. The loose synonyms (`haan`/`yes`/`ha`) now only apply when there are **no candidates** to confuse them with — the literal `"new"` value (what the actual button sends) still works everywhere, including the escape-hatch option on a disambiguation question.
+  - A message sent while a question was pending used to be swallowed if it didn't look like a valid answer — now `_answer_pending` returns `None` for "not an answer", and `handle_message` falls through to processing it as a brand-new message instead of discarding it.
+  - An empty/whitespace-only answer used to silently match the *first* candidate (`"" in any_string` is always `True` in Python). Guarded.
+  - `sku:abc` used to raise an uncaught `ValueError`. Caught, treated as "not an answer" (falls through, doesn't crash).
+  - Items after an ambiguous one in the same message used to be silently dropped once the loop hit a question and `break`ed. The pending row now carries the remaining items and the actions already booked; answering the question resumes processing the rest, chaining through multiple questions in one message if needed.
+  - A query (`"kitna stock bacha hai"`) or any non-movement intent could still carry a parsed item from a bad parse (`"2 kg aata chahiye"` → "I need 2kg atta" parsed an item) and got silently booked as stock-in regardless. Gated: only `stock_in`/`stock_out` intents ever reach the resolver now; a real `query` intent gets an honest reply pointing at the dashboard instead of "samajh nahi aaya".
+  - `unit_confident=False` used to be purely cosmetic — a footnote in the reply, while the write happened anyway with a possibly-wrong conversion. `units.py`'s own docstring already said "the caller should ask the user rather than guess"; nobody had implemented that part. Now it does: an unrecognized unit asks for confirmation before writing anything, reusing the same pending-ask machinery as SKU disambiguation.
+  - `extract()` now tags its own output `_source: "llm"|"rule"` and pipeline surfaces it in `debug.extract_source` — so a silent fallback to rules (e.g. hitting the Gemini quota again) is visible in the API response, not just a log line you have to be watching for.
+- [x] `resolver.py` — **fuzzy auto-accept no longer writes a permanent alias.** It was never confirmed by a human; auto-accepting it each time is fine, silently cementing an unconfirmed guess as a permanent mapping is how one slightly-off match becomes permanently wrong. Aliases are now only written when a human actually answers a clarifying question, or names an item by creating it.
+- [x] `inventory.py` — **`apply_movement` is now atomic.** It was 2-3 separate `db.execute()` calls (each its own connection + commit); a crash between them could leave the ledger and the SKU's `current_qty` out of sync. Now one connection, one commit.
+- [x] `routes/chat.py` — **unknown `shop_id` is now a clean 400**, validated at the boundary, instead of failing deep inside `create_sku` on a foreign-key violation and surfacing as a 500.
+- [x] `routes/chat.py` — **the blocking-event-loop bug.** `pipeline.handle_message` is sync (sqlite3 + a sync Gemini call with a 15s timeout) called directly inside an async route — one slow call used to stall every other request. Wrapped in `starlette.concurrency.run_in_threadpool` instead of rewriting the sync core as async.
 
 ### Dev B — interface & edges
 - [x] `index.html` — WhatsApp-style chat UI
@@ -198,4 +212,20 @@ Format: `HH:MM — who — what`
          shape itself is accepted. Still need a real SARVAM_API_KEY and an
          actual voice note to verify transcription quality -- ping me with
          both and I'll finish it the way I did extract.py.
+02:30 — A — second review pass from Dev B turned up a confirmed key leak
+         (Gemini key in ?key=... ended up in error text and logs -- moved to
+         a header) plus 9 more real bugs, mostly in pipeline.py: "haan"
+         creating junk SKUs on the wrong question, swallowed messages when
+         an answer didn't match, an empty answer matching the first
+         candidate, sku:abc crashing, items after a question getting
+         dropped, queries silently booking stock, fuzzy matches permanently
+         (and unconfirmed-ly) aliasing themselves, unit_confident being
+         purely cosmetic, non-atomic writes, a bad shop_id 500ing, and the
+         sync Gemini call blocking the whole event loop. All fixed and
+         re-verified: the original 3 demo sentences still pass unchanged,
+         plus a dedicated test for each bug (multi-item continuation, the
+         unit-confirmation ask, the haan/candidates fix, sku:abc, empty
+         answers, query-vs-booking, bad shop_id). Re-ran the Playwright
+         frontend suite too -- still 10/10, no contract regression from the
+         pipeline rewrite.
 ```
