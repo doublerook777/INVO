@@ -209,8 +209,11 @@ def _llm_extract(text):
             "responseMimeType": "application/json",
             "responseSchema": GEMINI_SCHEMA,
             "temperature": 0,
-            # Pure extraction, not reasoning -- extended thinking just adds
-            # 5-8s of latency per message for no quality gain here.
+            # Harmless to leave set, but measured: gemini-3.1-flash-lite never
+            # reports a thoughtsTokenCount regardless of this value -- it
+            # doesn't do extended thinking at all. The 4-11s (occasionally
+            # 20s+) latency this model shows is just its own generation time
+            # on the free tier, not a thinking-budget problem.
             "thinkingConfig": {"thinkingBudget": 0},
         },
     }
@@ -221,7 +224,11 @@ def _llm_extract(text):
         GEMINI_URL.format(model=GEMINI_MODEL),
         headers={"x-goog-api-key": GEMINI_API_KEY},
         json=body,
-        timeout=15,
+        # Measured a 28s outlier in testing. The rule-based fallback is
+        # proven-correct for every rehearsed demo sentence, so capping this
+        # lower trades "maybe the LLM's slightly better on an unrehearsed
+        # phrase" for "the demo never visibly hangs."
+        timeout=8,
     )
     resp.raise_for_status()
     data = resp.json()

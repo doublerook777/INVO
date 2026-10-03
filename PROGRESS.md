@@ -12,9 +12,9 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 
 | | Dev A (Ayush) — backend brain | Dev B — interface & edges |
 |---|---|---|
-| Current task | Backend solid through 3 review passes. Moving to Sarvam verification (need a key + voice note) | `routes/whatsapp.py`, `ocr.py` — see punch list below |
-| Blocked on | nothing | nothing — `asr.py` fully verified live |
-| Last commit | Fixed 3 more pending-answer bugs from Dev B's third review pass | initial scaffold |
+| Current task | Backend + ASR fully verified live. Demo plan: web UI for all 3 screenshots (Twilio trial blocks replies) | `ocr.py` next (`whatsapp.py` done, blocked on Twilio account tier, not code) |
+| Blocked on | nothing | nothing code-side; WhatsApp demo blocked on Twilio trial restrictions |
+| Last commit | Capped Gemini timeout at 8s, replied on Twilio in PROGRESS.md | whatsapp.py: voice notes + TwiML content-type |
 
 **Overall: T+0:00. Working skeleton committed and tested end to end.**
 
@@ -174,7 +174,7 @@ _Append as you hit them. Saves the other person an hour._
 | Without an enum on the `unit` field, Gemini invented plausible-looking units like `"units"` that `units.py` doesn't recognize, silently degrading to the low-confidence path | `GEMINI_SCHEMA`'s `unit` field is now constrained to the exact list `units.py` understands (`UNIT_ENUM`), and the prompt tells the model to default to `"packet"` for a bare count |
 | Gemini read `"paanch amul bike"` (sold) as `intent: unknown` and folded the verb into the item name | Prompt now explicitly lists which verbs mean `stock_in` vs `stock_out`, matching the same vocabulary `_rule_extract` already used |
 | **Twilio trial ("Try out WhatsApp", +1 737 250 8034) never delivers the bot's reply.** Inbound reaches us fine (ngrok + backend log show Twilio's POST, we return valid TwiML `text/xml`, HTTP 200), but nothing outbound appears in Twilio's Message Logs or on the phone. Twilio logs error 12300 on the inbound messages. Direct API send fails with `ContentSid Required`; creating our own template via Content API fails with code 20003 "not available on a Trial account"; the Send tab only offers the sample "Appointment Reminders" template; Monitor/Alerts API also trial-locked so no error detail. Not proven that TwiML replies are blocked, but every sign points to the trial allowing only the sample template | **Use the web chat UI for the demo** (roadmap cut list: "real Twilio -- web UI screenshots identically"). `whatsapp.py` is complete and should work unchanged once the account is upgraded. Dev A: worth a second pair of eyes -- if you have a different Twilio account/number (paid, or the classic +1 415 523 8886 sandbox), point it at the webhook (ngrok http 8000, POST /api/whatsapp/webhook) and see if replies arrive |
-| Gemini extraction takes **6-10 s per message** (measured `extract("do amul aaye")` = 9.7 s, webhook round trips 4-10 s) | Not a Twilio problem (its answer timeout is 30 s) but noticeable in chat. Dev A: maybe check `thinkingBudget`/model latency or add a timeout/fallback to rules |
+| Gemini extraction takes **4-11 s per message, occasionally 20s+** on `gemini-3.1-flash-lite` | **Confirmed not a thinkingBudget problem** -- this model never reports `thoughtsTokenCount` regardless of `thinkingConfig`, it just doesn't do extended thinking. The latency is the model's own generation time on the free tier. Capped `extract.py`'s timeout at 8s so a slow call fails over to the rule-based extractor (proven-correct on every demo sentence) instead of visibly hanging |
 ---
 
 ## Log
@@ -275,4 +275,22 @@ Format: `HH:MM — who — what`
          Details + what to try in Known issues. whatsapp.py also now returns
          text/xml (Twilio's documented TwiML type); harmless, did not fix it.
          ngrok stopped. Falling back to web UI for Screenshots 1-3, then ocr.py.
+04:00 — A — Agreed: web UI for all 3 screenshots, whatsapp.py's diagnosis
+         sounds right and isn't worth more time chasing. I don't have a
+         different Twilio account/number to test with either, so can't
+         independently confirm it -- but ContentSid Required + Content/Monitor
+         API both trial-locked is a well-known trial-tier wall, not something
+         our code is doing wrong. whatsapp.py is solid work either way, ready
+         for whenever the account gets upgraded.
+         Also checked your Gemini latency flag -- real, reproduced it myself
+         (4-11s typical, one 28s outlier). Not a thinkingBudget problem:
+         measured thoughtsTokenCount on gemini-3.1-flash-lite and it's always
+         None regardless of thinkingConfig -- this model doesn't do extended
+         thinking at all, the latency is just its own generation time on the
+         free tier. Lowered extract.py's timeout 15s -> 8s so a slow call
+         fails over to the rule-based extractor (proven-correct on every
+         demo sentence) instead of visibly hanging. Verified: same request
+         now returns in ~8.4s with extract_source: "rule", identical correct
+         output. No faster model with decent free quota that I know of right
+         now -- this is the accepted tradeoff for using gemini-3.1-flash-lite.
 ```
