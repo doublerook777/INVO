@@ -13,9 +13,11 @@ import re
 import httpx
 
 from ..config import GEMINI_API_KEY, log
+from .units import ALIASES as UNIT_ALIASES
+from .units import GENERIC as UNIT_GENERIC
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-3.1-flash-lite"  # gemini-3.8-flash free tier is 20 req/day -- too low to demo on
 
 # The frozen output schema. Everything downstream assumes exactly this shape.
 SCHEMA = {
@@ -47,6 +49,11 @@ SCHEMA = {
 # uppercase type names, `nullable: true` instead of a `type` union. Keep this
 # in lockstep with SCHEMA by hand -- there are only four fields, not worth
 # writing a converter for.
+# Constrain "unit" to what units.py actually understands. Without this, the
+# model invents plausible-sounding placeholders like "units" that units.py
+# can't convert, which silently degrades to the low-confidence path.
+UNIT_ENUM = sorted(set(UNIT_GENERIC) | set(UNIT_ALIASES))
+
 GEMINI_SCHEMA = {
     "type": "OBJECT",
     "properties": {
@@ -61,7 +68,7 @@ GEMINI_SCHEMA = {
                 "properties": {
                     "name": {"type": "STRING"},
                     "qty": {"type": "NUMBER"},
-                    "unit": {"type": "STRING"},
+                    "unit": {"type": "STRING", "enum": UNIT_ENUM},
                     "price_rupees": {"type": "NUMBER", "nullable": True},
                 },
                 "required": ["name", "qty", "unit"],
@@ -76,7 +83,18 @@ PROMPT = """You read WhatsApp messages from Indian kirana shop owners. They spea
 Hinglish (Hindi written in Latin script, mixed with English). Numbers are often
 Hindi words: bees=20, paanch=5, das=10, chhiyalis=46, pachas=50.
 
-Extract what stock came IN, what went OUT, or what they're asking.
+Words like aaya, aaye, mangaya, liya, mila, stock, received mean stock came IN
+(intent stock_in). Words like becha, bechi, bika, bike, bechni, sold, nikla
+mean stock went OUT, i.e. sold (intent stock_out). These are VERBS, not part
+of the item name -- never include them in "name".
+
+If the message is a question with no quantity (e.g. "kitna stock bacha hai"),
+use intent "query" and an empty items list.
+
+"unit" must be one of the allowed values given in the schema. If the owner
+names a bare count with no unit word (e.g. "bees Parle-G aaye"), use "packet"
+-- never invent a word that isn't in the allowed list.
+
 Keep item names EXACTLY as the owner said them -- do not translate or correct
 spelling. A later step matches them to the catalogue.
 
@@ -190,6 +208,9 @@ def _llm_extract(text):
             "responseMimeType": "application/json",
             "responseSchema": GEMINI_SCHEMA,
             "temperature": 0,
+            # Pure extraction, not reasoning -- extended thinking just adds
+            # 5-8s of latency per message for no quality gain here.
+            "thinkingConfig": {"thinkingBudget": 0},
         },
     }
     resp = httpx.post(

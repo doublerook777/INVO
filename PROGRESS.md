@@ -12,9 +12,9 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 
 | | Dev A (Ayush) — backend brain | Dev B — interface & edges |
 |---|---|---|
-| Current task | `extract.py` done, moving to stub endpoints / docs freeze | ASR + polish the UI |
-| Blocked on | needs a **real** `GEMINI_API_KEY` to test the LLM path live | needs `SARVAM_API_KEY` |
-| Last commit | Gemini structured-output extraction | initial scaffold |
+| Current task | `extract.py` DONE and verified live. Moving to stub endpoints / docs freeze | ASR + polish the UI |
+| Blocked on | nothing | needs `SARVAM_API_KEY` |
+| Last commit | Gemini live, model switched to `gemini-3.1-flash-lite` | initial scaffold |
 
 **Overall: T+0:00. Working skeleton committed and tested end to end.**
 
@@ -49,7 +49,7 @@ Verified working right now:
 - [x] `units.py` conversions
 - [x] `inventory.py` apply stock in/out
 - [x] `GET /api/inventory` returns real data
-- [x] `extract.py` — Gemini structured-output call (`responseSchema` pinned, no key -> falls back to rules). **Not yet tested with a real key.**
+- [x] `extract.py` — Gemini structured-output call (`responseSchema` pinned, no key -> falls back to rules). **Verified live with a real key, all demo sentences pass.**
 - [x] `resolver.py` — alias exact match
 - [x] `resolver.py` — fuzzy match
 - [x] `resolver.py` — **ask-once flow + alias write**
@@ -108,6 +108,9 @@ _Append as you hit them. Saves the other person an hour._
 | `g` as a unit collided with item names (`parle g` -> `parle`) | dropped bare `g` from the unit list; `gm`/`gram` still work |
 | `gaya`/`gaye` read as a sale, but `rate badh gaya` isn't one | stock-out now needs a `bik`/`bech` prefix or `sold`/`nikla` |
 | `pav` is both a unit (0.25 kg) and a word for bread | removed `pav` from the Bread aliases |
+| **`gemini-3.8-flash` free tier is only 20 requests/day** -- we burned it in ~15 minutes of testing | Switched `GEMINI_MODEL` in `extract.py` to `gemini-3.1-flash-lite`, which has a much higher free quota. If you add a key and extract() silently falls back to rules every time, check for a 429 in the server log -- that's quota, not a code bug |
+| Without an enum on the `unit` field, Gemini invented plausible-looking units like `"units"` that `units.py` doesn't recognize, silently degrading to the low-confidence path | `GEMINI_SCHEMA`'s `unit` field is now constrained to the exact list `units.py` understands (`UNIT_ENUM`), and the prompt tells the model to default to `"packet"` for a bare count |
+| Gemini read `"paanch amul bike"` (sold) as `intent: unknown` and folded the verb into the item name | Prompt now explicitly lists which verbs mean `stock_in` vs `stock_out`, matching the same vocabulary `_rule_extract` already used |
 
 ---
 
@@ -120,8 +123,13 @@ Format: `HH:MM — who — what`
 00:00 — both — backend verified end to end: extract -> resolve -> ledger -> reply
 00:00 — both — seed produces 32 SKUs, 107 aliases, 14d history, 5 low-stock items
 00:30 — A — extract.py: real Gemini call wired (httpx, responseSchema pinned,
-         no new dependency). Falls back to rules on any failure -- verified with
-         a bad key that the 400 is caught and the old rule-based flow still
-         runs unchanged. NOT yet run against a real Gemini key -- do that first
-         once GEMINI_API_KEY is in .env.
+         no new dependency). Falls back to rules on any failure.
+00:45 — A — tested live with a real GEMINI_API_KEY. gemini-2.0-flash was
+         deprecated (404) -> moved to gemini-3.8-flash -> hit its 20/day free
+         quota in minutes -> settled on gemini-3.1-flash-lite (higher free
+         quota, ~1s latency with thinkingBudget:0). Found and fixed two real
+         quality bugs along the way (unit hallucination, stock_out
+         misclassified) -- see Known issues. All 3 demo sentences now pass
+         live through the real HTTP server, not just the rule fallback.
+         DB reset to clean state afterward.
 ```
