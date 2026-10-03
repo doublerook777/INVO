@@ -36,7 +36,7 @@ def _twiml(text):
     return Response(
         content=f'<?xml version="1.0" encoding="UTF-8"?>'
                 f"<Response><Message>{safe}</Message></Response>",
-        media_type="application/xml",
+        media_type="text/xml",
     )
 
 
