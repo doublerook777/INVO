@@ -7,6 +7,23 @@
   --ok: #22c55e; --low: #f59e0b; --out: #ef4444;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Scrollbars everywhere (page, chat, sidebar, chips) -- thin, no bright
+   reserved track, just a soft thumb that fades in. The browser default was a
+   jarring light-grey bar on a dark UI. True OS-level overlay scrollbars
+   aren't something CSS can force cross-browser, so this is the closest
+   flush-looking equivalent: a transparent track plus a translucent thumb for
+   Chrome/Edge/Safari, and the thin/colored equivalent for Firefox. Scroll
+   itself is untouched either way -- mouse wheel, trackpad, touch all work. */
+html { scrollbar-width: thin; scrollbar-color: #2a3942 transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: #2a3942; border-radius: 8px; border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: #3a4a56; background-clip: padding-box; }
+
 body {
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   background: #0a0f14; color: var(--wa-text);
