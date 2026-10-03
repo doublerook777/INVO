@@ -71,8 +71,10 @@ async def _fetch_media(url):
                         return None
                 return bytes(data)
     except Exception as e:
-        # Log the type only: httpx error text carries the full media URL.
-        log(f"whatsapp: media download failed ({type(e).__name__})")
+        # Log type + status only: httpx error text carries the full media URL.
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        log(f"whatsapp: media download failed ({type(e).__name__}"
+            f"{f', HTTP {status}' if status else ''})")
         return None
 
 
