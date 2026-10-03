@@ -1,0 +1,429 @@
+[
+ {
+  "name": "Parle-G Biscuit",
+  "unit": "packet",
+  "cost": 900,
+  "sell": 1000,
+  "qty": 14,
+  "daily": 4.2,
+  "aliases": [
+   "parle g",
+   "parle-g",
+   "parle",
+   "chhota parle",
+   "parle biscuit",
+   "पारले जी"
+  ]
+ },
+ {
+  "name": "Parle Monaco",
+  "unit": "packet",
+  "cost": 1800,
+  "sell": 2000,
+  "qty": 22,
+  "daily": 1.1,
+  "aliases": [
+   "monaco",
+   "parle monaco"
+  ]
+ },
+ {
+  "name": "Britannia Good Day",
+  "unit": "packet",
+  "cost": 2700,
+  "sell": 3000,
+  "qty": 18,
+  "daily": 1.8,
+  "aliases": [
+   "good day",
+   "gud day",
+   "britannia good day"
+  ]
+ },
+ {
+  "name": "Maggi Noodles 70g",
+  "unit": "packet",
+  "cost": 1200,
+  "sell": 1400,
+  "qty": 31,
+  "daily": 6.4,
+  "aliases": [
+   "maggi",
+   "maggie",
+   "magi",
+   "noodles"
+  ]
+ },
+ {
+  "name": "Aashirvaad Atta",
+  "unit": "kg",
+  "cost": 4600,
+  "sell": 5200,
+  "qty": 8,
+  "daily": 3.1,
+  "aliases": [
+   "atta",
+   "aata",
+   "gehu atta",
+   "aashirvaad",
+   "आटा"
+  ]
+ },
+ {
+  "name": "India Gate Basmati Rice",
+  "unit": "kg",
+  "cost": 9500,
+  "sell": 11000,
+  "qty": 24,
+  "daily": 2.2,
+  "aliases": [
+   "chawal",
+   "rice",
+   "basmati",
+   "chaawal"
+  ]
+ },
+ {
+  "name": "Toor Dal",
+  "unit": "kg",
+  "cost": 14000,
+  "sell": 16000,
+  "qty": 11,
+  "daily": 1.6,
+  "aliases": [
+   "toor dal",
+   "arhar dal",
+   "dal",
+   "tur dal"
+  ]
+ },
+ {
+  "name": "Chana Dal",
+  "unit": "kg",
+  "cost": 8500,
+  "sell": 9500,
+  "qty": 9,
+  "daily": 0.9,
+  "aliases": [
+   "chana dal",
+   "channa dal"
+  ]
+ },
+ {
+  "name": "Tata Salt",
+  "unit": "packet",
+  "cost": 2400,
+  "sell": 2800,
+  "qty": 27,
+  "daily": 1.4,
+  "aliases": [
+   "namak",
+   "salt",
+   "tata namak",
+   "नमक"
+  ]
+ },
+ {
+  "name": "Fortune Sunflower Oil 1L",
+  "unit": "litre",
+  "cost": 14500,
+  "sell": 16000,
+  "qty": 6,
+  "daily": 2.1,
+  "aliases": [
+   "tel",
+   "oil",
+   "sunflower oil",
+   "fortune",
+   "refined"
+  ]
+ },
+ {
+  "name": "Amul Butter 100g",
+  "unit": "packet",
+  "cost": 5600,
+  "sell": 6200,
+  "qty": 12,
+  "daily": 1.7,
+  "aliases": [
+   "butter",
+   "amul butter",
+   "makhan"
+  ]
+ },
+ {
+  "name": "Amul Taaza Milk 500ml",
+  "unit": "packet",
+  "cost": 2700,
+  "sell": 3000,
+  "qty": 18,
+  "daily": 9.5,
+  "aliases": [
+   "doodh",
+   "milk",
+   "amul milk",
+   "taaza"
+  ]
+ },
+ {
+  "name": "Tata Tea Gold 250g",
+  "unit": "packet",
+  "cost": 14000,
+  "sell": 15500,
+  "qty": 10,
+  "daily": 1.2,
+  "aliases": [
+   "chai",
+   "tea",
+   "chai patti",
+   "tata tea"
+  ]
+ },
+ {
+  "name": "Nescafe Classic 50g",
+  "unit": "packet",
+  "cost": 17500,
+  "sell": 19000,
+  "qty": 7,
+  "daily": 0.5,
+  "aliases": [
+   "coffee",
+   "nescafe",
+   "kaafi"
+  ]
+ },
+ {
+  "name": "Sugar",
+  "unit": "kg",
+  "cost": 4300,
+  "sell": 4800,
+  "qty": 16,
+  "daily": 2.8,
+  "aliases": [
+   "cheeni",
+   "chini",
+   "sugar",
+   "शक्कर"
+  ]
+ },
+ {
+  "name": "Lays Classic Salted",
+  "unit": "packet",
+  "cost": 1700,
+  "sell": 2000,
+  "qty": 25,
+  "daily": 3.9,
+  "aliases": [
+   "lays",
+   "chips",
+   "lays salted"
+  ]
+ },
+ {
+  "name": "Kurkure Masala Munch",
+  "unit": "packet",
+  "cost": 1700,
+  "sell": 2000,
+  "qty": 20,
+  "daily": 3.4,
+  "aliases": [
+   "kurkure",
+   "kurkura"
+  ]
+ },
+ {
+  "name": "Coca-Cola 750ml",
+  "unit": "piece",
+  "cost": 3200,
+  "sell": 4000,
+  "qty": 15,
+  "daily": 2.6,
+  "aliases": [
+   "coke",
+   "cola",
+   "coca cola",
+   "thanda"
+  ]
+ },
+ {
+  "name": "Thums Up 750ml",
+  "unit": "piece",
+  "cost": 3200,
+  "sell": 4000,
+  "qty": 13,
+  "daily": 2.3,
+  "aliases": [
+   "thums up",
+   "thumsup",
+   "thums"
+  ]
+ },
+ {
+  "name": "Frooti 160ml",
+  "unit": "piece",
+  "cost": 900,
+  "sell": 1000,
+  "qty": 30,
+  "daily": 4.1,
+  "aliases": [
+   "frooti",
+   "mango juice",
+   "juice"
+  ]
+ },
+ {
+  "name": "Colgate Strong Teeth 100g",
+  "unit": "piece",
+  "cost": 5200,
+  "sell": 5800,
+  "qty": 9,
+  "daily": 0.6,
+  "aliases": [
+   "colgate",
+   "toothpaste",
+   "manjan"
+  ]
+ },
+ {
+  "name": "Lifebuoy Soap",
+  "unit": "piece",
+  "cost": 3000,
+  "sell": 3400,
+  "qty": 21,
+  "daily": 1.5,
+  "aliases": [
+   "lifebuoy",
+   "sabun",
+   "soap",
+   "साबुन"
+  ]
+ },
+ {
+  "name": "Surf Excel 500g",
+  "unit": "packet",
+  "cost": 6500,
+  "sell": 7200,
+  "qty": 8,
+  "daily": 1.0,
+  "aliases": [
+   "surf",
+   "surf excel",
+   "detergent",
+   "washing powder"
+  ]
+ },
+ {
+  "name": "Vim Dishwash Bar",
+  "unit": "piece",
+  "cost": 1000,
+  "sell": 1200,
+  "qty": 24,
+  "daily": 1.9,
+  "aliases": [
+   "vim",
+   "vim bar",
+   "bartan sabun"
+  ]
+ },
+ {
+  "name": "Harpic 500ml",
+  "unit": "piece",
+  "cost": 8500,
+  "sell": 9500,
+  "qty": 5,
+  "daily": 0.3,
+  "aliases": [
+   "harpic",
+   "toilet cleaner"
+  ]
+ },
+ {
+  "name": "Clinic Plus Shampoo Sachet",
+  "unit": "piece",
+  "cost": 200,
+  "sell": 300,
+  "qty": 60,
+  "daily": 5.2,
+  "aliases": [
+   "shampoo",
+   "clinic plus",
+   "shampoo pouch"
+  ]
+ },
+ {
+  "name": "Red Label Tea 100g",
+  "unit": "packet",
+  "cost": 5500,
+  "sell": 6000,
+  "qty": 11,
+  "daily": 0.8,
+  "aliases": [
+   "red label",
+   "brooke bond"
+  ]
+ },
+ {
+  "name": "Haldi Powder 100g",
+  "unit": "packet",
+  "cost": 3000,
+  "sell": 3400,
+  "qty": 13,
+  "daily": 0.7,
+  "aliases": [
+   "haldi",
+   "turmeric",
+   "haldi powder",
+   "हल्दी"
+  ]
+ },
+ {
+  "name": "Mirchi Powder 100g",
+  "unit": "packet",
+  "cost": 3800,
+  "sell": 4200,
+  "qty": 12,
+  "daily": 0.7,
+  "aliases": [
+   "mirchi",
+   "lal mirch",
+   "chilli powder"
+  ]
+ },
+ {
+  "name": "Besan",
+  "unit": "kg",
+  "cost": 7000,
+  "sell": 7800,
+  "qty": 7,
+  "daily": 0.9,
+  "aliases": [
+   "besan",
+   "gram flour"
+  ]
+ },
+ {
+  "name": "Poha",
+  "unit": "kg",
+  "cost": 5000,
+  "sell": 5600,
+  "qty": 10,
+  "daily": 1.1,
+  "aliases": [
+   "poha",
+   "chiwda",
+   "flattened rice"
+  ]
+ },
+ {
+  "name": "Bread",
+  "unit": "packet",
+  "cost": 3500,
+  "sell": 4000,
+  "qty": 6,
+  "daily": 5.8,
+  "aliases": [
+   "bread",
+   "double roti"
+  ]
+ }
+]

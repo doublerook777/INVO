@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StockSaathi — Dashboard</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body { display: block; padding: 40px 32px; }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  .grid { display: grid; grid-template-columns: 1.45fr 1fr; gap: 16px; align-items: start; }
+  .stats { grid-template-columns: repeat(4, 1fr); margin-bottom: 16px; }
+  @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="index.html">Chat</a>
+  <a href="dashboard.html">Dashboard</a>
+</div>
+
+<div class="wrap">
+  <h1 style="font-size:26px">Sharma Kirana Store</h1>
+  <div class="sub" style="color:var(--wa-muted);margin:4px 0 20px">
+    Stock register, kept entirely from WhatsApp voice notes
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Full stock</h2>
+      <table>
+        <thead><tr>
+          <th>Item</th><th class="num">Qty</th><th class="num">Sold/day</th>
+          <th class="num">Days left</th><th></th>
+        </tr></thead>
+        <tbody id="stock"></tbody>
+      </table>
+    </div>
+
+    <div>
+      <div class="card">
+        <h2>Reorder now</h2>
+        <div id="alerts"></div>
+      </div>
+      <div class="card">
+        <h2>Stock value</h2>
+        <div id="value" style="font-size:30px;font-weight:600"></div>
+        <div style="color:var(--wa-muted);font-size:12px;margin-top:3px">
+          at cost price
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="dashboard.js"></script>
+</body>
+</html>
