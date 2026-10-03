@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from . import db
 from .config import log
-from .routes import chat, inventory, whatsapp
+from .routes import chat, inventory, messages, whatsapp
 
 app = FastAPI(title="Invo", version="0.1.0",
               description="WhatsApp inventory agent for kirana shops")
@@ -18,6 +18,7 @@ app.add_middleware(
 
 app.include_router(chat.router)
 app.include_router(inventory.router)
+app.include_router(messages.router)
 app.include_router(whatsapp.router)
 
 

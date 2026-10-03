@@ -3,8 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Invo — WhatsApp Inventory Agent</title>
+<title>Invo — WhatsApp mirror</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+  .mirror-note { padding: 14px; text-align: center; font-size: 12px; color: var(--wa-muted); background: #111b21; border-top: 1px solid #1f2c34; }
+</style>
 </head>
 <body>
 
@@ -22,7 +25,7 @@
     <div class="avatar">🛒</div>
     <div class="who">
       <div class="name">Invo</div>
-      <div class="status">online</div>
+      <div class="status" id="who">WhatsApp · waiting for messages…</div>
     </div>
     <div class="icons">⋮</div>
   </div>
@@ -31,20 +34,13 @@
     <div class="daypill">TODAY</div>
   </div>
 
-  <div class="chips" id="chips"></div>
-
-  <div class="composer">
-    <input id="input" placeholder="Message" autocomplete="off">
-    <button id="mic"  title="Send a voice note">🎙</button>
-    <button id="send" title="Send">➤</button>
-    <input type="file" id="audiofile" accept="audio/*" hidden>
-  </div>
+  <div class="mirror-note">Live, read-only mirror of the WhatsApp chat</div>
 </div>
 
 <!-- ============ live stock, beside the phone ============ -->
 <div class="side">
   <h1>Sharma Kirana Store</h1>
-  <div class="sub">Live stock — updates as the chat does</div>
+  <div class="sub">Live stock — updates as WhatsApp messages arrive</div>
 
   <div class="stats" id="stats"></div>
 
@@ -62,6 +58,6 @@
   </div>
 </div>
 
-<script src="app.js"></script>
+<script src="whatsapp.js"></script>
 </body>
 </html>
