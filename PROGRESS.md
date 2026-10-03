@@ -13,7 +13,7 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 | | Dev A (Ayush) — backend brain | Dev B — interface & edges |
 |---|---|---|
 | Current task | Backend solid through 3 review passes. Moving to Sarvam verification (need a key + voice note) | `routes/whatsapp.py`, `ocr.py` — see punch list below |
-| Blocked on | nothing | needs `SARVAM_API_KEY` + a real voice note to finish verifying `asr.py` |
+| Blocked on | nothing | nothing — `asr.py` fully verified live |
 | Last commit | Fixed 3 more pending-answer bugs from Dev B's third review pass | initial scaffold |
 
 **Overall: T+0:00. Working skeleton committed and tested end to end.**
@@ -28,6 +28,10 @@ Verified working right now:
 - `do peti coke aaye` -> 48 pieces (unit conversion)
 - `do amul aaye` -> bot asks Butter or Milk -> answer -> **asks again? no.**
 - 5 items already low, so the alert screenshot has real content
+- **Real voice notes, end to end** — a real WhatsApp-style voice note
+  ("paanch amul aaye") uploaded to `/api/chat` transcribes correctly via
+  Sarvam and resolves/books correctly. **Screenshot 1 can be shot with a real
+  voice note now, not a typed message.**
 
 ---
 
@@ -84,7 +88,7 @@ Verified working right now:
 - [x] Text message round trip works
 - [x] `dashboard.html` — stock table
 - [x] Dashboard — low stock rows in red
-- [~] `asr.py` — rewritten against Sarvam's current API (model name was deprecated, same as Gemini's), keyterms wired to the catalog. **Request shape confirmed live (403 on a bad key, not 400); transcription quality still needs a real key + real audio.**
+- [x] `asr.py` — rewritten against Sarvam's current API (model name was deprecated, same as Gemini's), keyterms wired to the catalog. **Fully verified live**: two real voice notes ("paanch amul aaye", "das maggi bik gaye") transcribed perfectly, through the actual `/api/chat` voice upload path end to end (transcribe → Gemini extract → resolve → ledger write). `mode=translit` confirmed correct, no longer a guess.
 - [x] Voice input in the UI (mic + file-upload fallback) — untested without a key
 - [ ] `ocr.py` — bill photo *(cut first if short on time)*
 - [~] `routes/whatsapp.py` — text path done; **media download TODO(Dev B)** *(cut second)*
@@ -109,14 +113,13 @@ files, see `GIT_WORKFLOW.md`):
 - [x] `dashboard.js` checks `res.ok` on both requests now, same fix as app.js.
 - Verified with a headless-browser test (Playwright): ask-once flow end to end, double-click guard, HTML-injection attempt in an item name, mic-permission denial message, dashboard row count. All 10 checks passed. Stock-value formula (`current_qty * cost_per_unit`) left as-is — that's a backend unit-cost question, not a frontend bug, noted inline in the code.
 
-**`asr.py` — FIXED by Dev A, but not yet proven with a real key or a real voice note:**
+**`asr.py` — FIXED and FULLY VERIFIED LIVE:**
 - [x] MIME is no longer hardcoded — `transcribe()` takes `mime_type` and `chat.py` passes `audio.content_type` through. Falls back to guessing from the filename extension if not given.
 - [x] `saarika:v2` was deprecated — checked Sarvam's current docs. The whole Saarika line is gone; it's merged into the Saaras family on the same `/speech-to-text` endpoint. Switched to `model=saaras:v4`. There's also no `language_code` request field anymore (only appears in the response) — removed it.
-- [x] Added `mode=translit` for Latin-script output, since that's what the rule extractor and Gemini schema both expect. **Open question, flagged in the code**: Sarvam's docs describe `translit` ("romanization to Latin script") and `codemix` ("code-mixed text output") without fully distinguishing which one actually matches Hinglish speech -> "bees Parle-G aaye". Test both the moment you have a real voice note.
-- [x] Added `keyterms` — Sarvam v4 lets you bias recognition toward up to 50 specific terms. Now pulls the shop's own SKU names from the DB and passes them, so "Parle-G" and "Aashirvaad" get a real shot instead of generic ASR.
+- [x] `mode=translit` for Latin-script output — **confirmed correct, not a guess anymore.** Tested against two real voice notes: "paanch amul aaye" and "das maggi bik gaye", both transcribed back **verbatim correct**, through the real `/api/chat` voice path end to end (Sarvam transcribe → Gemini extract → resolver → ledger write). Maggi's "bik gaye" even correctly produced a `stock_out` with the ledger decremented.
+- [x] Added `keyterms` — Sarvam v4 lets you bias recognition toward up to 50 specific terms. Pulls the shop's own SKU names from the DB and passes them, so "Parle-G" and "Aashirvaad" get a real shot instead of generic ASR.
 - [x] If every backend fails, the server log now says which ones were tried and why, not just a silent `None`.
-- [x] Whisper gets a prompt hint with the exact Hinglish style and brand names we need — deliberately **not** pinning `language=hi`, since that tends to push Whisper toward Devanagari output, the opposite of what the pipeline expects. The prompt's own Latin script is the more reliable lever for that. Also unverified live — confirm once there's a key.
-- **Verified so far**: a deliberately bad key gets a `403` from the real endpoint (not a 400), meaning the request shape itself — model name, mode, keyterms, multipart body — is accepted by Sarvam. Quality (does `translit` actually sound right, does the model mishear anything) still needs a real key + a real voice note. Get the key and send me an audio clip and I'll finish verifying it the same way I did `extract.py`.
+- [x] Whisper gets a prompt hint with the exact Hinglish style and brand names we need — deliberately **not** pinning `language=hi`, since that tends to push Whisper toward Devanagari output, the opposite of what the pipeline expects. Whisper itself is still unverified (no `OPENAI_API_KEY` tested) — low priority, Sarvam is the primary path and it works.
 
 **`routes/whatsapp.py`:**
 - [ ] Voice notes aren't handled — `MediaUrl0` is never downloaded. This is the headline feature over WhatsApp; it's currently a no-op on audio.
@@ -246,4 +249,13 @@ Format: `HH:MM — who — what`
          wedges the sender, cancel correctly books the item after the one
          skipped, abandoned question correctly re-confirms what was booked.
          Next: Sarvam key + a real voice note to finish verifying asr.py.
+03:00 — A — SARVAM_API_KEY landed, plus two real voice notes ("paanch amul
+         aaye", "das maggi bik gaye"). Both transcribed verbatim-correct via
+         Sarvam's saaras:v4/mode=translit. Ran them through the real
+         /api/chat voice upload path end to end: Maggi correctly resolved
+         via alias, direction correctly read as stock_out from "bik gaye",
+         ledger decremented. Amul correctly asked for disambiguation (fresh
+         DB, no learned alias yet). asr.py is DONE -- no longer a guess on
+         translit vs codemix, confirmed with real audio. Screenshot 1 can
+         now be shot with an actual voice note instead of typed text.
 ```

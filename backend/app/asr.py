@@ -7,14 +7,10 @@ the Sarvam key doesn't come through.
 Returning None makes the pipeline reply "audio samajh nahi aaya", which is a
 fine failure mode -- it never crashes the demo.
 
-NOTE on SARVAM_MODE: Sarvam's docs describe "translit" as "romanization to
-Latin script" and "codemix" as "code-mixed text output" without fully
-disambiguating which one actually matches our case (Hinglish speech -> Latin
-script text like "bees Parle-G aaye", same as the rule extractor expects).
-translit is the safer-sounding bet from the description, but this needs a
-real audio sample to confirm -- same situation extract.py was in before
-testing against a live key turned up real surprises. Test both once you have
-a voice note.
+SARVAM_MODE = "translit" is confirmed, not a guess: tested against two real
+voice notes ("paanch amul aaye", "das maggi bik gaye") and it came back
+verbatim-correct Latin-script Hinglish both times, through the real /api/chat
+voice-note path end to end (transcribe -> Gemini extract -> resolve -> ledger).
 """
 import json
 
