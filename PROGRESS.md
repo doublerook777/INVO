@@ -12,9 +12,9 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 
 | | Dev A (Ayush) — backend brain | Dev B — interface & edges |
 |---|---|---|
-| Current task | Gemini extraction (`extract.py`) | ASR + polish the UI |
-| Blocked on | needs `GEMINI_API_KEY` | needs `SARVAM_API_KEY` |
-| Last commit | initial scaffold | initial scaffold |
+| Current task | `extract.py` done, moving to stub endpoints / docs freeze | ASR + polish the UI |
+| Blocked on | needs a **real** `GEMINI_API_KEY` to test the LLM path live | needs `SARVAM_API_KEY` |
+| Last commit | Gemini structured-output extraction | initial scaffold |
 
 **Overall: T+0:00. Working skeleton committed and tested end to end.**
 
@@ -49,7 +49,7 @@ Verified working right now:
 - [x] `units.py` conversions
 - [x] `inventory.py` apply stock in/out
 - [x] `GET /api/inventory` returns real data
-- [~] `extract.py` — rule-based fallback works; **Gemini call still TODO(Dev A)**
+- [x] `extract.py` — Gemini structured-output call (`responseSchema` pinned, no key -> falls back to rules). **Not yet tested with a real key.**
 - [x] `resolver.py` — alias exact match
 - [x] `resolver.py` — fuzzy match
 - [x] `resolver.py` — **ask-once flow + alias write**
@@ -119,4 +119,9 @@ Format: `HH:MM — who — what`
 00:00 — both — repo scaffolded, docs written, pushed
 00:00 — both — backend verified end to end: extract -> resolve -> ledger -> reply
 00:00 — both — seed produces 32 SKUs, 107 aliases, 14d history, 5 low-stock items
+00:30 — A — extract.py: real Gemini call wired (httpx, responseSchema pinned,
+         no new dependency). Falls back to rules on any failure -- verified with
+         a bad key that the 400 is caught and the old rule-based flow still
+         runs unchanged. NOT yet run against a real Gemini key -- do that first
+         once GEMINI_API_KEY is in .env.
 ```

@@ -2,17 +2,20 @@
 
 Dev A owns this file.
 
-TODO(Dev A): replace `_llm_extract` with a real Gemini call using *structured
-output against this exact schema*. Do not prompt "please return JSON" -- pin the
-schema in the request so the model cannot return prose. That one choice removes
-most of the parsing bugs you'd otherwise spend hour 4 on.
-
-Until then `_rule_extract` handles the demo sentences so Dev B is never blocked.
+`_llm_extract` calls Gemini with *structured output against the frozen schema*
+below (via `responseSchema`, not a "please return JSON" prompt) so the model
+cannot return prose. `_rule_extract` is the fallback when there's no key or the
+call fails, so Dev B is never blocked by Gemini being flaky or missing.
 """
 import json
 import re
 
+import httpx
+
 from ..config import GEMINI_API_KEY, log
+
+GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+GEMINI_MODEL = "gemini-2.0-flash"
 
 # The frozen output schema. Everything downstream assumes exactly this shape.
 SCHEMA = {
@@ -36,6 +39,35 @@ SCHEMA = {
             },
         },
         "question": {"type": ["string", "null"]},
+    },
+    "required": ["intent", "items"],
+}
+
+# Gemini's `responseSchema` is OpenAPI-ish but not identical to SCHEMA above:
+# uppercase type names, `nullable: true` instead of a `type` union. Keep this
+# in lockstep with SCHEMA by hand -- there are only four fields, not worth
+# writing a converter for.
+GEMINI_SCHEMA = {
+    "type": "OBJECT",
+    "properties": {
+        "intent": {
+            "type": "STRING",
+            "enum": ["stock_in", "stock_out", "query", "answer", "unknown"],
+        },
+        "items": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "name": {"type": "STRING"},
+                    "qty": {"type": "NUMBER"},
+                    "unit": {"type": "STRING"},
+                    "price_rupees": {"type": "NUMBER", "nullable": True},
+                },
+                "required": ["name", "qty", "unit"],
+            },
+        },
+        "question": {"type": "STRING", "nullable": True},
     },
     "required": ["intent", "items"],
 }
@@ -146,8 +178,38 @@ def _rule_extract(text):
 
 
 def _llm_extract(text):
-    """TODO(Dev A): Gemini structured-output call. Return the SCHEMA shape."""
-    raise NotImplementedError
+    """Gemini call with structured output pinned to GEMINI_SCHEMA.
+
+    Raises on any failure (bad key, network, malformed response) -- `extract()`
+    catches that and falls back to `_rule_extract`. Never let a bad LLM call
+    take down the chat turn.
+    """
+    body = {
+        "contents": [{"parts": [{"text": PROMPT.format(text=text)}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": GEMINI_SCHEMA,
+            "temperature": 0,
+        },
+    }
+    resp = httpx.post(
+        GEMINI_URL.format(model=GEMINI_MODEL),
+        params={"key": GEMINI_API_KEY},
+        json=body,
+        timeout=15,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    raw_text = data["candidates"][0]["content"]["parts"][0]["text"]
+    result = json.loads(raw_text)
+
+    if result.get("intent") not in SCHEMA["properties"]["intent"]["enum"]:
+        result["intent"] = "unknown"
+    result.setdefault("items", [])
+    result.setdefault("question", None)
+    for item in result["items"]:
+        item.setdefault("price_rupees", None)
+    return result
 
 
 def extract(text):
@@ -156,8 +218,6 @@ def extract(text):
     if GEMINI_API_KEY:
         try:
             return _llm_extract(text)
-        except NotImplementedError:
-            pass
         except Exception as e:
             log("extract: LLM failed, falling back to rules:", e)
     return _rule_extract(text)
