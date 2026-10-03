@@ -90,14 +90,17 @@ function optionButtons(options) {
 // race the pending-question state on the backend.
 let inFlight = false;
 
-async function send(text, audioBlob) {
+// `label` is what the user sees in their own bubble when the sent text is a
+// machine value (an option tap sends `sku:12`, but the bubble should read as
+// the item name they tapped).
+async function send(text, audioBlob, label) {
   if (inFlight) return;
   inFlight = true;
   sendEl.disabled = micEl.disabled = input.disabled = true;
 
   try {
     if (audioBlob) voiceBubble();
-    else if (text) bubble("out", escapeHtml(text), { ticks: true });
+    else if (text) bubble("out", escapeHtml(label || text), { ticks: true });
 
     input.value = "";
     const t = typing();
@@ -139,7 +142,7 @@ async function send(text, audioBlob) {
     row.querySelectorAll(".opts button").forEach(btn => {
       btn.onclick = () => {
         row.querySelector(".opts").remove();
-        send(btn.dataset.value);
+        send(btn.dataset.value, undefined, btn.textContent);
       };
     });
 
