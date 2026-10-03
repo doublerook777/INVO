@@ -6,7 +6,7 @@ from . import db
 from .config import log
 from .routes import chat, inventory, whatsapp
 
-app = FastAPI(title="StockSaathi", version="0.1.0",
+app = FastAPI(title="Invo", version="0.1.0",
               description="WhatsApp inventory agent for kirana shops")
 
 # Wide open on purpose -- it's a hackathon demo, and a CORS error at hour 5
@@ -24,7 +24,7 @@ app.include_router(whatsapp.router)
 @app.on_event("startup")
 def startup():
     db.init_db()
-    log("StockSaathi up -- docs at http://localhost:8000/docs")
+    log("Invo up -- docs at http://localhost:8000/docs")
 
 
 @app.get("/api/health")

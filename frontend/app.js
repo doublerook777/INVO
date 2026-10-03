@@ -1,4 +1,4 @@
-/* StockSaathi chat UI. Dev B owns this file.
+/* Invo chat UI. Dev B owns this file.
    Talks to POST /api/chat -- see docs/api-contract.md. */
 
 const API = localStorage.getItem("api") || "http://localhost:8000";

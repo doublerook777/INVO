@@ -1,4 +1,4 @@
-# StockSaathi
+# Invo
 
 **A WhatsApp agent that keeps a kirana shop's stock register, by voice.**
 

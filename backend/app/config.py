@@ -15,7 +15,7 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
 TWILIO_WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "")
 
-DB_PATH = BASE_DIR / os.getenv("DB_PATH", "stocksaathi.db")
+DB_PATH = BASE_DIR / os.getenv("DB_PATH", "invo.db")
 DEMO_SHOP_ID = int(os.getenv("DEMO_SHOP_ID", "1"))
 
 # Resolver thresholds -- tune these during the demo, they matter a lot.
@@ -28,4 +28,4 @@ LOW_STOCK_DAYS = 4.0       # days of cover below which we nag
 
 def log(*args):
     """Use this instead of print, so demo output is greppable."""
-    print("[stocksaathi]", *args, flush=True)
+    print("[invo]", *args, flush=True)

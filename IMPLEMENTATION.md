@@ -108,7 +108,7 @@ Make sure the demo shows this.
 ## 2. File structure
 
 ```
-stock-saathi/
+invo/
 ├── README.md
 ├── ROADMAP.md               # 6-hour plan + work split
 ├── IMPLEMENTATION.md        # this file
@@ -222,8 +222,8 @@ trusting these numbers.
 ### Everyone
 
 ```bash
-git clone git@github.com:ayushrai-10/stock-saathi.git
-cd stock-saathi
+git clone git@github.com:ayushrai-10/invo.git
+cd invo
 ```
 
 ### Backend
