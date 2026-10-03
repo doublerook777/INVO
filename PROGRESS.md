@@ -185,6 +185,7 @@ _Append as you hit them. Saves the other person an hour._
 | Gemini read `"paanch amul bike"` (sold) as `intent: unknown` and folded the verb into the item name | Prompt now explicitly lists which verbs mean `stock_in` vs `stock_out`, matching the same vocabulary `_rule_extract` already used |
 | **Twilio trial ("Try out WhatsApp", +1 737 250 8034) never delivers the bot's reply.** Inbound reaches us fine (ngrok + backend log show Twilio's POST, we return valid TwiML `text/xml`, HTTP 200), but nothing outbound appears in Twilio's Message Logs or on the phone. Twilio logs error 12300 on the inbound messages. Direct API send fails with `ContentSid Required`; creating our own template via Content API fails with code 20003 "not available on a Trial account"; the Send tab only offers the sample "Appointment Reminders" template; Monitor/Alerts API also trial-locked so no error detail. Not proven that TwiML replies are blocked, but every sign points to the trial allowing only the sample template | **Use the web chat UI for the demo** (roadmap cut list: "real Twilio -- web UI screenshots identically"). `whatsapp.py` is complete and should work unchanged once the account is upgraded. Dev A: worth a second pair of eyes -- if you have a different Twilio account/number (paid, or the classic +1 415 523 8886 sandbox), point it at the webhook (ngrok http 8000, POST /api/whatsapp/webhook) and see if replies arrive |
 | Gemini extraction takes **4-11 s per message, occasionally 20s+** on `gemini-3.1-flash-lite` | **Confirmed not a thinkingBudget problem** -- this model never reports `thoughtsTokenCount` regardless of `thinkingConfig`, it just doesn't do extended thinking. The latency is the model's own generation time on the free tier. Capped `extract.py`'s timeout at 8s so a slow call fails over to the rule-based extractor (proven-correct on every demo sentence) instead of visibly hanging |
+| **WhatsApp voice notes can't be downloaded on the Twilio trial.** The webhook gets `MediaUrl0` pointing at a *different* account (`.../Accounts/ACe112b4.../Messages/MM.../Media/ME...`, not our account SID), and fetching it with our SID/token returns **HTTP 401** (also 401 with no auth). Not a code bug: our creds simply don't own that media. Text over WhatsApp works end to end (mirror page shows it) | Voice demo goes through the **web UI mic** (real Sarvam, works). Likely resolves with an upgraded/own WhatsApp sender. No Dev A action needed, FYI only |
 ---
 
 ## Log
@@ -327,5 +328,10 @@ Format: `HH:MM — who — what`
          verified against the real server or DB directly. Re-ran the
          original 3 demo sentences and the full Playwright suite -- still
          all green.
+04:35 — B — Tested WhatsApp from a real phone: text works end to end and shows on
+         the mirror page. Voice note fails at media download: Twilio's MediaUrl0
+         belongs to another account and our creds get 401 (see Known issues).
+         whatsapp.py now logs the HTTP status. Voice screenshot will come from
+         the web UI mic instead.
 ```
 
