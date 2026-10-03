@@ -293,4 +293,12 @@ Format: `HH:MM — who — what`
          now returns in ~8.4s with extract_source: "rule", identical correct
          output. No faster model with decent free quota that I know of right
          now -- this is the accepted tradeoff for using gemini-3.1-flash-lite.
+04:15 — B — Built a WhatsApp mirror so a real phone screenshot can be paired with
+         the bot's replies: new routes/messages.py (GET /api/messages, read-only,
+         WhatsApp senders only) + frontend/whatsapp.html/.js (phone-frame view of
+         the stored conversation, phone number masked, labelled "read-only
+         mirror"). Added one include_router line to main.py -- Dev A, FYI, shout
+         if you'd rather own that. Slides must say replies are shown here because
+         the Twilio trial can't deliver them. Tested with simulated webhook posts.
 ```
+
