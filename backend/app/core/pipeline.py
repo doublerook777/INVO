@@ -44,14 +44,30 @@ def _save_pending(shop_id, sender, question, candidates, raw_item):
     )
 
 
+# Free-text equivalents so WhatsApp users who type instead of tapping a
+# button still work -- the sandbox has no tappable buttons, only the web UI
+# options carry literal "new"/"cancel" values.
+CANCEL_WORDS = {"cancel", "nahi", "no", "na"}
+NEW_WORDS = {"new", "haan", "haan, add karo", "yes", "ha", "add karo"}
+
+
 def _answer_pending(shop_id, sender, text, pending):
     """User just answered 'which item did you mean?'. Learn it, then apply."""
     raw_item = json.loads(pending["raw_item_json"])
     candidates = json.loads(pending["candidates_json"])
     choice = (text or "").strip().lower()
+    _clear_pending(shop_id, sender)
 
+    if choice in CANCEL_WORDS:
+        return {"reply": reply.cancelled(), "actions": [], "needs_answer": False,
+                "debug": {"matched_via": "cancelled"}}
+
+    created = False
     sku = None
-    if choice.startswith("sku:"):
+    if choice in NEW_WORDS:
+        sku = inventory.create_sku(shop_id, raw_item["name"], raw_item.get("unit", ""))
+        created = True
+    elif choice.startswith("sku:"):
         sku = db.query_one("SELECT * FROM skus WHERE id = ?", (int(choice[4:]),))
     else:
         for c in candidates:
@@ -59,7 +75,6 @@ def _answer_pending(shop_id, sender, text, pending):
                 sku = db.query_one("SELECT * FROM skus WHERE id = ?", (c["id"],))
                 break
 
-    _clear_pending(shop_id, sender)
     if not sku:
         return {"reply": reply.not_understood(), "actions": [], "needs_answer": False}
 
@@ -71,11 +86,16 @@ def _answer_pending(shop_id, sender, text, pending):
         shop_id, sku, raw_item.get("direction", "in"),
         raw_item["qty"], raw_item.get("unit", ""), raw_item.get("price_rupees"),
     )
+    if created:
+        msg = f"{reply.created_new(sku['name'])}\n{reply.confirm([action])}"
+    else:
+        msg = reply.confirm([action]) + f"\nAb se '{raw_item['name']}' yaad rahega."
     return {
-        "reply": reply.confirm([action]) + f"\nAb se '{raw_item['name']}' yaad rahega.",
+        "reply": msg,
         "actions": [action],
         "needs_answer": False,
-        "debug": {"matched_via": "user_answer", "alias_learned": raw_item["name"]},
+        "debug": {"matched_via": "new_sku" if created else "user_answer",
+                  "alias_learned": raw_item["name"]},
     }
 
 

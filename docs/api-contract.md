@@ -80,6 +80,24 @@ track any state.
 **After this, the alias is saved and the bot never asks again.** Make sure the
 demo shows a second message with the same wording going straight through.
 
+**Answering "new" / "cancel":** if the user picks "Naya item hai" or "Nahi" (or
+WhatsApp-types "haan"/"nahi" since the sandbox has no tappable buttons), send
+`new` or `cancel` as `text` — same as any other answer. `new` creates a SKU from
+the original raw item and books the movement against it; `cancel` drops the
+pending question with no side effect.
+
+### Errors
+
+Any failure is a non-2xx status with `{"error": "<message>"}` — never a 200
+with an error field, and never a bare 500 with no body (the frontend's
+`res.json()` would throw on that).
+
+| Status | When |
+|---|---|
+| 400 | bad body, or none of `text`/`audio`/`image` present |
+| 413 | uploaded file over 15MB |
+| 500 | the pipeline threw — check the server log, the response body won't have detail |
+
 ---
 
 ## `GET /api/inventory?shop_id=1`

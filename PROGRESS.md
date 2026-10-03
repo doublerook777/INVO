@@ -56,6 +56,8 @@ Verified working right now:
 - [x] `reorder.py` — days of cover
 - [x] `reply.py` — Hinglish replies
 - [x] `pipeline.py` — all of it wired into `/api/chat`
+- [x] `pipeline.py` / `inventory.py` — **`new` and `cancel` answers now handled.** Previously the "Naya item hai?" offer had nowhere to go — answering it always fell through to "samajh nahi aaya". Added `inventory.create_sku()` and taught `_answer_pending` to create-and-book on `new`, no-op on `cancel`. Also accepts free-text `haan`/`nahi` etc, since WhatsApp sandbox users type, they don't tap buttons.
+- [x] `routes/chat.py` (SHARED) — accepts JSON **or** multipart now (contract always said both; only form-data was implemented). Errors are proper 4xx/5xx with `{"error": ...}`, never a 200 or a bare crash. Upload size capped at 15MB. A bill photo's OCR text no longer silently overwrites typed text in the same message.
 
 ### Dev B — interface & edges
 - [x] `index.html` — WhatsApp-style chat UI
@@ -68,6 +70,44 @@ Verified working right now:
 - [ ] `ocr.py` — bill photo *(cut first if short on time)*
 - [~] `routes/whatsapp.py` — text path done; **media download TODO(Dev B)** *(cut second)*
 - [ ] ngrok tunnel live
+
+### Dev B — bugs found in review, not yet fixed
+
+Found during a pass over `frontend/*`, `asr.py`, `routes/whatsapp.py`. These are
+your files — I didn't touch them. The contract side of #2 (handling `new`/
+`cancel`) is done on my end already, see above.
+
+**`frontend/app.js` — fix before Screenshot 2:**
+- [ ] Option buttons send `btn.textContent` (the label), not `btn.dataset.value`. Only works today because names happen to substring-match. Send the `value` field.
+- [ ] No in-flight guard on `send()` — sending twice fast, or tapping an option mid-request, interleaves responses and races the pending-question state.
+- [ ] `res.json()` on a non-2xx response throws before you can read the real error (now fixed server-side to always send `{"error": ...}` — check `res.ok` first and show the status).
+- [ ] `escapeHtml` exists but isn't used on `a.sku_name` / `o.label` / `o.value` in `receipt()` / `optionButtons()` — raw `innerHTML` today.
+- [ ] `sender` is hardcoded `"web-demo"` — every browser tab shares one pending-question. Use a per-tab id in `sessionStorage`.
+- [ ] Mic stream can leak if `MediaRecorder` throws after `getUserMedia` succeeds — stop the tracks in that catch path.
+- [ ] No-permission mic click silently opens the file picker — show a message first.
+- [ ] `shop_id` is never sent (fine for demo, contract lists it as required).
+
+**`frontend/dashboard.js`:**
+- [ ] Stock value is `current_qty * cost_per_unit` — shows ₹0 for zero-cost seeded items, and the number will shift if cost handling changes.
+- [ ] Same swallowed-error problem as app.js — "Backend offline" on any failure, not just a dead server.
+- [ ] `.slice(0, 14)` truncates the panel — a low-stock item past position 14 is invisible. Either scroll the panel or sort low-stock-first.
+
+**`asr.py` — test as soon as the Sarvam key lands:**
+- [ ] MIME is hardcoded `audio/ogg`; the browser actually sends webm. Pass the real MIME through.
+- [ ] Sarvam call (model name, field names, `language_code`) has never run against the real API — same situation `extract.py` was in. Budget time to hit the same kind of surprises I did (deprecated names, quota limits, schema drift).
+- [ ] `hi-IN` may not be the right language code for code-mixed Hinglish — worth a quick test against `unknown`/`en-IN` too.
+- [ ] If both Sarvam and Whisper fail, the user just gets "samajh nahi aaya" with no hint — fine for demo, but log which one failed and why.
+- [ ] Whisper call has no language/prompt hint — "Parle-G" is likely to get misheard without one.
+
+**`routes/whatsapp.py`:**
+- [ ] Voice notes aren't handled — `MediaUrl0` is never downloaded. This is the headline feature over WhatsApp; it's currently a no-op on audio.
+- [ ] `int(NumMedia)` can 500 if Twilio sends something unexpected — guard it.
+- [ ] No `X-Twilio-Signature` check (fine for the demo, flag it if anyone asks).
+- [ ] The async handler calls `pipeline.handle_message`, which is sync SQLite — blocks the event loop per request. Fine at demo traffic, not production.
+- [ ] TwiML replies are text-only — the ask-once options/buttons never reach WhatsApp. Sandbox users have to type the answer in words, which the backend now handles (`new`/`cancel`/free text all work), but make sure the question text itself spells out the choices in words since there are no buttons.
+- [ ] Webhook sender is `whatsapp:+91...`, different from the web UI's `web-demo` — the two surfaces don't share pending-question state. Expected, just worth knowing for the demo script.
+
+**`ocr.py`:** not implemented (`NotImplementedError`). First on the cut list — leave it unless everything else is done early.
 
 ### Endgame (both)
 - [ ] Full flow tested 10× with different phrasings
@@ -90,7 +130,7 @@ Verified working right now:
 | Hand-written CSS, no Tailwind CDN | venue wifi dying shouldn't take the UI down |
 | SQLite, not Postgres+pgvector | 6 hours; no service to run; swap later |
 | rapidfuzz, not embeddings | good enough for kirana names, zero setup |
-| Plain HTML + Tailwind CDN, no React | no build step to break at hour 5 |
+| Plain HTML + hand-written CSS, no React | no build step to break at hour 5 |
 | Twilio sandbox, not Meta Cloud API | ~15 min setup vs. Meta's verification flow |
 | Money stored as integer paise | float rupees will produce wrong totals |
 | No barcode scanning | most kirana stock isn't barcoded |
@@ -132,4 +172,14 @@ Format: `HH:MM — who — what`
          misclassified) -- see Known issues. All 3 demo sentences now pass
          live through the real HTTP server, not just the rule fallback.
          DB reset to clean state afterward.
+01:15 — A — fixed bugs from Dev B's review that were on my side: "new"/
+         "cancel" had no backend handler (dead end) -- added
+         inventory.create_sku() and taught _answer_pending to create-and-book
+         or no-op. routes/chat.py now accepts JSON or form, always returns
+         proper status codes + {"error"} body, caps uploads at 15MB, doesn't
+         let OCR text clobber typed text. Verified live: unknown item -> "new"
+         -> SKU created + booked -> same phrase again resolves silently;
+         unknown item -> "cancel" -> no stock change. docs/api-contract.md
+         updated with the error shape and the new/cancel answer convention.
+         Dev B's frontend/asr/whatsapp bugs are listed above for them to fix.
 ```

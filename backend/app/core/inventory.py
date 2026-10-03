@@ -1,6 +1,20 @@
 """Write stock movements and read current levels. Dev A owns this file."""
 from .. import db
-from .units import to_canonical
+from .units import normalize_unit, to_canonical
+
+
+def create_sku(shop_id, name, unit=""):
+    """Brand-new SKU, offered when the resolver couldn't match anything.
+
+    The raw unit the owner used becomes the canonical unit, so the very first
+    movement against it is always unit-confident (raw == canon).
+    """
+    canonical = normalize_unit(unit) or "packet"
+    sku_id = db.execute(
+        "INSERT INTO skus (shop_id, name, canonical_unit) VALUES (?, ?, ?)",
+        (shop_id, name.strip().title(), canonical),
+    )
+    return db.query_one("SELECT * FROM skus WHERE id = ?", (sku_id,))
 
 
 def apply_movement(shop_id, sku, direction, qty, unit, cost_rupees=None, source="chat"):

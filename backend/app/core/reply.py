@@ -39,3 +39,11 @@ def offer_new(raw_name):
 
 def not_understood():
     return "Samajh nahi aaya. Jaise bolein: \"bees Parle-G aaye\""
+
+
+def created_new(sku_name):
+    return f"Naya item '{sku_name}' add kar diya."
+
+
+def cancelled():
+    return "Theek hai, cancel kar diya."
