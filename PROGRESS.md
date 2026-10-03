@@ -65,7 +65,7 @@ Verified working right now:
 - [x] Text message round trip works
 - [x] `dashboard.html` — stock table
 - [x] Dashboard — low stock rows in red
-- [~] `asr.py` — Sarvam + Whisper code written but **never run (no key yet)**
+- [~] `asr.py` — rewritten against Sarvam's current API (model name was deprecated, same as Gemini's), keyterms wired to the catalog. **Request shape confirmed live (403 on a bad key, not 400); transcription quality still needs a real key + real audio.**
 - [x] Voice input in the UI (mic + file-upload fallback) — untested without a key
 - [ ] `ocr.py` — bill photo *(cut first if short on time)*
 - [~] `routes/whatsapp.py` — text path done; **media download TODO(Dev B)** *(cut second)*
@@ -90,12 +90,14 @@ files, see `GIT_WORKFLOW.md`):
 - [x] `dashboard.js` checks `res.ok` on both requests now, same fix as app.js.
 - Verified with a headless-browser test (Playwright): ask-once flow end to end, double-click guard, HTML-injection attempt in an item name, mic-permission denial message, dashboard row count. All 10 checks passed. Stock-value formula (`current_qty * cost_per_unit`) left as-is — that's a backend unit-cost question, not a frontend bug, noted inline in the code.
 
-**`asr.py` — still yours, test as soon as the Sarvam key lands:**
-- [ ] MIME is hardcoded `audio/ogg`; the browser actually sends webm. Pass the real MIME through.
-- [ ] Sarvam call (model name, field names, `language_code`) has never run against the real API — same situation `extract.py` was in. Budget time to hit the same kind of surprises I did (deprecated names, quota limits, schema drift).
-- [ ] `hi-IN` may not be the right language code for code-mixed Hinglish — worth a quick test against `unknown`/`en-IN` too.
-- [ ] If both Sarvam and Whisper fail, the user just gets "samajh nahi aaya" with no hint — fine for demo, but log which one failed and why.
-- [ ] Whisper call has no language/prompt hint — "Parle-G" is likely to get misheard without one.
+**`asr.py` — FIXED by Dev A, but not yet proven with a real key or a real voice note:**
+- [x] MIME is no longer hardcoded — `transcribe()` takes `mime_type` and `chat.py` passes `audio.content_type` through. Falls back to guessing from the filename extension if not given.
+- [x] `saarika:v2` was deprecated — checked Sarvam's current docs. The whole Saarika line is gone; it's merged into the Saaras family on the same `/speech-to-text` endpoint. Switched to `model=saaras:v4`. There's also no `language_code` request field anymore (only appears in the response) — removed it.
+- [x] Added `mode=translit` for Latin-script output, since that's what the rule extractor and Gemini schema both expect. **Open question, flagged in the code**: Sarvam's docs describe `translit` ("romanization to Latin script") and `codemix` ("code-mixed text output") without fully distinguishing which one actually matches Hinglish speech -> "bees Parle-G aaye". Test both the moment you have a real voice note.
+- [x] Added `keyterms` — Sarvam v4 lets you bias recognition toward up to 50 specific terms. Now pulls the shop's own SKU names from the DB and passes them, so "Parle-G" and "Aashirvaad" get a real shot instead of generic ASR.
+- [x] If every backend fails, the server log now says which ones were tried and why, not just a silent `None`.
+- [x] Whisper gets a prompt hint with the exact Hinglish style and brand names we need — deliberately **not** pinning `language=hi`, since that tends to push Whisper toward Devanagari output, the opposite of what the pipeline expects. The prompt's own Latin script is the more reliable lever for that. Also unverified live — confirm once there's a key.
+- **Verified so far**: a deliberately bad key gets a `403` from the real endpoint (not a 400), meaning the request shape itself — model name, mode, keyterms, multipart body — is accepted by Sarvam. Quality (does `translit` actually sound right, does the model mishear anything) still needs a real key + a real voice note. Get the key and send me an audio clip and I'll finish verifying it the same way I did `extract.py`.
 
 **`routes/whatsapp.py`:**
 - [ ] Voice notes aren't handled — `MediaUrl0` is never downloaded. This is the headline feature over WhatsApp; it's currently a no-op on audio.
@@ -186,4 +188,14 @@ Format: `HH:MM — who — what`
          checks passed. Added GIT_WORKFLOW.md: no branches, commit to main,
          stick to file ownership, PROGRESS.md is append-only. Read it before
          your next commit.
+02:00 — A — asr.py rewritten (by request): saarika:v2 is deprecated, same
+         situation gemini-2.0-flash was in -- switched to saaras:v4 on the
+         same endpoint, dropped language_code (not an accepted request field
+         anymore), added mode=translit and catalog-driven keyterms. Real MIME
+         type now flows through from chat.py instead of a hardcoded
+         audio/ogg. Verified request shape with a deliberately bad Sarvam
+         key -- got a 403 (auth rejected), not a 400 (bad request), so the
+         shape itself is accepted. Still need a real SARVAM_API_KEY and an
+         actual voice note to verify transcription quality -- ping me with
+         both and I'll finish it the way I did extract.py.
 ```

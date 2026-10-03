@@ -58,7 +58,8 @@ async def chat(request: Request):
         audio_bytes = await _read_capped(audio)
         if audio_bytes is None:
             return _error(413, "audio file too large")
-        transcript = await asr.transcribe(audio_bytes, audio.filename or "note.ogg")
+        transcript = await asr.transcribe(audio_bytes, audio.filename or "note.ogg",
+                                           mime_type=audio.content_type, shop_id=shop_id)
         if not transcript:
             return {"reply": "Audio samajh nahi aaya. Type karke bhejiye?",
                     "transcript": None, "needs_answer": False, "actions": []}
