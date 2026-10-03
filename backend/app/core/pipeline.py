@@ -6,11 +6,13 @@ integration dies at hour 4, we lose a transport, not the product.
 Dev A owns this file.
 """
 import json
+import re
 
 from .. import db
 from ..config import log
 from . import extract as extract_mod
 from . import inventory, reply, resolver
+from .reorder import days_of_cover
 from .units import to_canonical
 
 # Only these intents ever touch the ledger. A "query" or "unknown" message
@@ -18,6 +20,12 @@ from .units import to_canonical
 # chahiye" ("I need 2kg atta") parses an item, but it means a request, not
 # a delivery -- and must never silently book a movement.
 MOVEMENT_INTENTS = {"stock_in", "stock_out"}
+
+# Words that show up in a stock question but aren't part of the item name --
+# on top of extract.STOP, which already covers most of the verb/particle
+# vocabulary for stock_in/out messages.
+QUERY_STOP = {"kitna", "kitne", "kitni", "bacha", "bache", "bachi",
+              "kya", "dikhao", "batao", "abhi", "left", "available"}
 
 CANCEL_WORDS = {"cancel", "nahi", "no", "na"}
 # Free-text equivalents so WhatsApp users who type instead of tapping a
@@ -69,6 +77,49 @@ def _done(actions):
     }
 
 
+def _apply_item(shop_id, sender, sku, item, direction, remaining, actions):
+    """Book `item` against a SKU that's no longer in question -- OR ask for
+    unit confirmation first if the stated unit doesn't convert cleanly.
+
+    This is the one place that decides whether a resolved item actually gets
+    written. Used both when _process_items finds a SKU directly (alias/fuzzy
+    match) and when _answer_pending just learned which SKU the user meant --
+    a SKU chosen via a clarifying question is not exempt from the same guard
+    against a bad unit conversion. (It used to be: the unit confidence check
+    lived only in _process_items, so resolving an item through the ask-once
+    flow could silently write a wrong quantity with no guard at all.)
+    """
+    qty_canon, confident = to_canonical(
+        item["qty"], item.get("unit", ""), sku["canonical_unit"], sku["name"])
+
+    if not confident:
+        # units.py's own contract: "the caller should ask the user rather
+        # than guess". A garbled unit used to silently write a wrong number
+        # to the ledger with only a footnote in the reply. Ask instead.
+        question = reply.confirm_unit(item["qty"], item.get("unit", ""),
+                                       sku["name"], sku["canonical_unit"])
+        item["direction"] = direction
+        _save_pending(shop_id, sender, question, [], {
+            "reason": "unit_ask", "item": item, "sku_id": sku["id"],
+            "remaining": remaining, "actions_so_far": actions,
+        })
+        return {
+            "reply": question,
+            "needs_answer": True,
+            "options": [
+                {"label": reply.confirm_unit_label(item["qty"], sku["canonical_unit"]),
+                 "value": "confirm_unit"},
+                {"label": "Nahi, cancel karo", "value": "cancel"},
+            ],
+            "actions": actions,
+            "debug": {"intent": direction, "matched_via": "unit_ask"},
+        }
+
+    action = inventory.apply_movement(
+        shop_id, sku, direction, item["qty"], item.get("unit", ""), item.get("price_rupees"))
+    return _process_items(shop_id, sender, remaining, direction, actions + [action])
+
+
 def _process_items(shop_id, sender, items, direction, actions=None):
     """Walk items in order, applying each resolved one. The moment one needs
     clarification (ambiguous SKU, brand-new item, or an unconvertible unit),
@@ -78,78 +129,46 @@ def _process_items(shop_id, sender, items, direction, actions=None):
     the message.
     """
     actions = list(actions or [])
+    if not items:
+        return _done(actions)
 
-    for idx, item in enumerate(items):
-        remaining = items[idx + 1:]
-        res = resolver.resolve(shop_id, item["name"])
+    item, remaining = items[0], items[1:]
+    res = resolver.resolve(shop_id, item["name"])
 
-        if res["status"] in (resolver.EXACT, resolver.FUZZY):
-            sku = res["sku"]
-            qty_canon, confident = to_canonical(
-                item["qty"], item.get("unit", ""), sku["canonical_unit"], sku["name"])
+    if res["status"] in (resolver.EXACT, resolver.FUZZY):
+        return _apply_item(shop_id, sender, res["sku"], item, direction, remaining, actions)
 
-            if not confident:
-                # units.py's own contract: "the caller should ask the user
-                # rather than guess". Nothing used to act on this -- a
-                # garbled unit silently wrote a wrong number to the ledger
-                # with only a footnote in the reply. Ask instead of guessing.
-                question = reply.confirm_unit(item["qty"], item.get("unit", ""),
-                                               sku["name"], sku["canonical_unit"])
-                item["direction"] = direction
-                _save_pending(shop_id, sender, question, [], {
-                    "reason": "unit_ask", "item": item, "sku_id": sku["id"],
-                    "remaining": remaining, "actions_so_far": actions,
-                })
-                return {
-                    "reply": question,
-                    "needs_answer": True,
-                    "options": [
-                        {"label": reply.confirm_unit_label(item["qty"], sku["canonical_unit"]),
-                         "value": "confirm_unit"},
-                        {"label": "Nahi, cancel karo", "value": "cancel"},
-                    ],
-                    "actions": actions,
-                    "debug": {"intent": direction, "matched_via": "unit_ask"},
-                }
+    item["direction"] = direction
 
-            actions.append(inventory.apply_movement(
-                shop_id, sku, direction, item["qty"], item.get("unit", ""),
-                item.get("price_rupees")))
-            continue
-
-        item["direction"] = direction
-
-        if res["status"] == resolver.ASK:
-            question = reply.ask_which(item["name"], res["candidates"])
-            _save_pending(shop_id, sender, question, res["candidates"], {
-                "reason": "sku_ask", "item": item,
-                "remaining": remaining, "actions_so_far": actions,
-            })
-            return {
-                "reply": question,
-                "needs_answer": True,
-                "options": [{"label": c["name"], "value": f"sku:{c['id']}"}
-                            for c in res["candidates"]] + [
-                               {"label": "Naya item hai", "value": "new"}],
-                "actions": actions,
-                "debug": {"intent": direction, "matched_via": "ask"},
-            }
-
-        question = reply.offer_new(item["name"])
-        _save_pending(shop_id, sender, question, [], {
-            "reason": "new_offer", "item": item,
+    if res["status"] == resolver.ASK:
+        question = reply.ask_which(item["name"], res["candidates"])
+        _save_pending(shop_id, sender, question, res["candidates"], {
+            "reason": "sku_ask", "item": item,
             "remaining": remaining, "actions_so_far": actions,
         })
         return {
             "reply": question,
             "needs_answer": True,
-            "options": [{"label": "Haan, add karo", "value": "new"},
-                        {"label": "Nahi", "value": "cancel"}],
+            "options": [{"label": c["name"], "value": f"sku:{c['id']}"}
+                        for c in res["candidates"]] + [
+                           {"label": "Naya item hai", "value": "new"}],
             "actions": actions,
-            "debug": {"intent": direction, "matched_via": "new"},
+            "debug": {"intent": direction, "matched_via": "ask"},
         }
 
-    return _done(actions)
+    question = reply.offer_new(item["name"])
+    _save_pending(shop_id, sender, question, [], {
+        "reason": "new_offer", "item": item,
+        "remaining": remaining, "actions_so_far": actions,
+    })
+    return {
+        "reply": question,
+        "needs_answer": True,
+        "options": [{"label": "Haan, add karo", "value": "new"},
+                    {"label": "Nahi", "value": "cancel"}],
+        "actions": actions,
+        "debug": {"intent": direction, "matched_via": "new"},
+    }
 
 
 def _answer_pending(shop_id, sender, text, pending):
@@ -237,11 +256,12 @@ def _answer_pending(shop_id, sender, text, pending):
 
     resolver.learn_alias(shop_id, sku["id"], item["name"])
     log(f"learned alias: '{item['name']}' -> {sku['name']}")
-    action = inventory.apply_movement(
-        shop_id, sku, direction, item["qty"], item.get("unit", ""), item.get("price_rupees"))
-    actions = actions_so_far + [action]
-
-    result = _process_items(shop_id, sender, remaining, direction, actions)
+    # Through _apply_item, not a direct apply_movement call -- a SKU chosen
+    # via this question still needs its unit checked. The original unit
+    # confidence couldn't even be known until just now (different SKUs have
+    # different canonical units), so skipping this check here is exactly how
+    # it used to slip through.
+    result = _apply_item(shop_id, sender, sku, item, direction, remaining, actions_so_far)
     if not result.get("needs_answer"):
         if created:
             result["reply"] = f"{reply.created_new(sku['name'])}\n{result['reply']}"
@@ -249,6 +269,27 @@ def _answer_pending(shop_id, sender, text, pending):
             result["reply"] += f"\nAb se '{item['name']}' yaad rahega."
     result.setdefault("debug", {})["matched_via"] = "new_sku" if created else "user_answer"
     return result, []
+
+
+def _answer_query(shop_id, raw_text):
+    """"kitna parle g bacha hai" -> actually look it up, instead of always
+    pointing at the dashboard. Only answers when the leftover text resolves
+    confidently to one SKU (EXACT/FUZZY) -- a wrong guess on a read is lower
+    stakes than a wrong guess on a movement, but still worse than admitting
+    we don't know, so an ambiguous or unmatched name falls back same as before.
+    """
+    tokens = re.sub(r"[.,;!?—–-]+", " ", (raw_text or "").lower()).split()
+    name = " ".join(t for t in tokens if t not in extract_mod.STOP and t not in QUERY_STOP).strip()
+    if not name:
+        return reply.query_reply()
+
+    res = resolver.resolve(shop_id, name)
+    if res["status"] not in (resolver.EXACT, resolver.FUZZY):
+        return reply.query_reply()
+
+    sku = res["sku"]
+    _, cover = days_of_cover(shop_id, sku["id"], sku["current_qty"])
+    return reply.stock_level(sku["name"], sku["current_qty"], sku["canonical_unit"], cover)
 
 
 def handle_message(shop_id, sender, text=None, transcript=None):
@@ -277,8 +318,11 @@ def handle_message(shop_id, sender, text=None, transcript=None):
     if parsed["intent"] not in MOVEMENT_INTENTS:
         # Never book a movement for a query or an unclear message, even if
         # the extractor still parsed something that looks like an item.
+        reply_text = reply.not_understood()
+        if parsed["intent"] == "query":
+            reply_text = _answer_query(shop_id, body)
         out = {
-            "reply": reply.query_reply() if parsed["intent"] == "query" else reply.not_understood(),
+            "reply": reply_text,
             "needs_answer": False,
             "actions": [],
             "debug": {"intent": parsed["intent"], "matched_via": "none",

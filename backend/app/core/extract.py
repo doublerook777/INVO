@@ -17,7 +17,12 @@ from .units import ALIASES as UNIT_ALIASES
 from .units import GENERIC as UNIT_GENERIC
 
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-GEMINI_MODEL = "gemini-3.1-flash-lite"  # gemini-3.8-flash free tier is 20 req/day -- too low to demo on
+# gemini-3.8-flash: free tier is 20 req/day, too low to demo on.
+# gemini-3.1-flash-lite: higher quota but 5-9s typical, sometimes 20s+.
+# gemini-3.5-flash-lite: ~500 req/day free *and* ~1-2s typical -- measured
+# both repeatedly before picking this. Does NOT accept thinkingConfig (400s
+# on it), which is fine -- it doesn't need disabling, it's already fast.
+GEMINI_MODEL = "gemini-3.5-flash-lite"
 
 # The frozen output schema. Everything downstream assumes exactly this shape.
 SCHEMA = {
@@ -209,12 +214,9 @@ def _llm_extract(text):
             "responseMimeType": "application/json",
             "responseSchema": GEMINI_SCHEMA,
             "temperature": 0,
-            # Harmless to leave set, but measured: gemini-3.1-flash-lite never
-            # reports a thoughtsTokenCount regardless of this value -- it
-            # doesn't do extended thinking at all. The 4-11s (occasionally
-            # 20s+) latency this model shows is just its own generation time
-            # on the free tier, not a thinking-budget problem.
-            "thinkingConfig": {"thinkingBudget": 0},
+            # No thinkingConfig -- gemini-3.5-flash-lite 400s on it (doesn't
+            # accept the field at all), and doesn't need it: measured
+            # ~1-2s typical without it, nothing suggesting hidden thinking.
         },
     }
     # The key goes in a header, never a query param. A query param ends up in
@@ -224,10 +226,8 @@ def _llm_extract(text):
         GEMINI_URL.format(model=GEMINI_MODEL),
         headers={"x-goog-api-key": GEMINI_API_KEY},
         json=body,
-        # Measured a 28s outlier in testing. The rule-based fallback is
-        # proven-correct for every rehearsed demo sentence, so capping this
-        # lower trades "maybe the LLM's slightly better on an unrehearsed
-        # phrase" for "the demo never visibly hangs."
+        # Still a safety cap, not the expected case -- 1-2s typical, this is
+        # just a guard against a rare stall, same reasoning as before.
         timeout=8,
     )
     resp.raise_for_status()

@@ -12,9 +12,9 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 
 | | Dev A (Ayush) — backend brain | Dev B — interface & edges |
 |---|---|---|
-| Current task | Backend + ASR fully verified live. Demo plan: web UI for all 3 screenshots (Twilio trial blocks replies) | `ocr.py` next (`whatsapp.py` done, blocked on Twilio account tier, not code) |
+| Current task | Fixed 8 more real bugs from Dev B's fourth review pass (cost conversion, negative stock, reorder math, query answering, Gemini model swap) — see below | `ocr.py` next (`whatsapp.py` done, blocked on Twilio account tier, not code) |
 | Blocked on | nothing | nothing code-side; WhatsApp demo blocked on Twilio trial restrictions |
-| Last commit | Capped Gemini timeout at 8s, replied on Twilio in PROGRESS.md | whatsapp.py: voice notes + TwiML content-type |
+| Last commit | 8 bugs fixed: cost/sell-price conversion, negative stock, reorder math, real query answering, junk-unit guard, unit re-check after SKU answer, Gemini model swap for real speed | whatsapp.py: voice notes + TwiML content-type |
 
 **Overall: T+0:00. Working skeleton committed and tested end to end.**
 
@@ -81,6 +81,16 @@ Verified working right now:
 - [x] `inventory.py` — **`apply_movement` is now atomic.** It was 2-3 separate `db.execute()` calls (each its own connection + commit); a crash between them could leave the ledger and the SKU's `current_qty` out of sync. Now one connection, one commit.
 - [x] `routes/chat.py` — **unknown `shop_id` is now a clean 400**, validated at the boundary, instead of failing deep inside `create_sku` on a foreign-key violation and surfacing as a 500.
 - [x] `routes/chat.py` — **the blocking-event-loop bug.** `pipeline.handle_message` is sync (sqlite3 + a sync Gemini call with a 15s timeout) called directly inside an async route — one slow call used to stall every other request. Wrapped in `starlette.concurrency.run_in_threadpool` instead of rewriting the sync core as async.
+- [x] **8 more bugs from Dev B's fourth review pass, all confirmed and fixed:**
+  - `apply_movement` never converted a stated price into the SKU's canonical unit — "ek peti ka rate 500 rupaye" (price per peti) got stored as `cost_per_unit=500` even though the canonical unit is `packet` (24 per peti), overstating per-packet cost 24x. Fixed: convert the rate by the exact same ratio as the quantity conversion. Verified: ₹50/peti on a 24-packet-per-peti SKU now stores ₹2.08/packet (208 paise), not 5000.
+  - A price mentioned on a **stock-out** overwrote `cost_per_unit` (the buy cost) with what was actually a **sell price**. Fixed: direction decides which column gets written — `cost_per_unit` on `stock_in`, `sell_price` on `stock_out`. `reply.confirm()` now says "kharid rate" vs "bech rate" to match. Verified directly against the DB: a sale's price now lands in `sell_price`, `cost_per_unit` untouched.
+  - **Stock could go negative** — nothing clamped `current_qty` against an over-large stock-out. Fixed: floored at 0. The ledger still records the full reported movement (an audit trail should show what was actually said); only the running balance is floored. Verified: selling 100 of something with 12 on hand now lands at exactly 0, not -88.
+  - The reorder suggestion (`suggested_order_qty`) computed "14 days of average sales" from scratch, **completely ignoring `current_qty`** — a shop with 6 units on hand and avg 5.4/day got told to order 76 (14×5.4), not the 70 actually needed to top up to the same 14-day target. Fixed: `suggested = avg*14 - current_qty`. Verified the math matches exactly.
+  - `create_sku` could store a junk unit as a SKU's canonical unit forever — `normalize_unit()` passes an unrecognized word straight through unchanged instead of rejecting it. Fixed: validated against `units.py`'s own `GENERIC` table, falls back to `"packet"` for anything not recognized. Verified: `create_sku(..., unit="dabba")` now stores `"packet"`, not `"dabba"`.
+  - **Confirmed and fixed**: a unit's confidence was only checked in `_process_items`'s main loop, not in `_answer_pending`'s "user just told us which SKU they meant" path — so resolving an item through the ask-once flow could silently write a bad conversion with zero guard, reproducing the exact bug the unit-confidence ask was supposed to prevent, just on a different code path. Extracted the check into a shared `_apply_item` helper used by both paths (this is literally how the gap happened: the logic existed in one place, not the other). Verified directly: an ambiguous item with an unrecognized unit, answered via `sku:<id>`, now correctly triggers a unit-confirmation question instead of silently writing, with `current_qty` unchanged until confirmed.
+  - Query messages ("kitna parle g bacha hai") only ever got a canned pointer at the dashboard. Implemented real lookup: strip query words from the message, try to resolve what's left against the catalog, and if it resolves confidently (EXACT/FUZZY, same bar as a movement), answer with the actual quantity and days of cover. Falls back to the old dashboard-pointer message if nothing resolves confidently — a wrong guess on a read is lower stakes than one on a movement, but still worse than admitting we don't know. Verified: "kitna parle g bacha hai" → "Parle-G Biscuit ka abhi 14 packet bacha hai, karib 3.9 din chalega."; a nonsense query still falls back cleanly.
+  - Gemini latency (6-10s, flagged again) — the earlier 8s timeout cap was a safety net, not a real fix for the common case. Measured 4 different models side by side: `gemini-3.1-flash-lite` (5-9s, occasional 20s+), `gemini-3.5-flash-lite` (**~1-2s**, ~500 req/day free tier). Switched models. `thinkingConfig` actually 400s on this model (it doesn't accept the field) — removed it, not needed anyway. Verified live end to end: the full multi-item demo sentence now completes in **1.9s total**, through the real server, `extract_source: "llm"`.
+  - Re-ran the original 3 demo sentences and the full Playwright suite after all of the above — still all green.
 
 ### Dev B — interface & edges
 - [x] `index.html` — WhatsApp-style chat UI
@@ -300,5 +310,22 @@ Format: `HH:MM — who — what`
          mirror"). Added one include_router line to main.py -- Dev A, FYI, shout
          if you'd rather own that. Slides must say replies are shown here because
          the Twilio trial can't deliver them. Tested with simulated webhook posts.
+04:45 — A — Dev B's fourth review pass: 8 more confirmed bugs, all fixed.
+         Real ones this time, not edge cases: cost wasn't converted to the
+         canonical unit (24x overstatement on a peti-priced item), a
+         stock-out's price overwrote the BUY cost instead of setting
+         sell_price, stock could go negative, the reorder suggestion ignored
+         current_qty entirely, create_sku could store a junk canonical unit
+         forever, and the unit-confidence check from an earlier pass only
+         covered one of the two places a SKU gets resolved (missed the
+         ask-once-answer path). Also actually fixed the Gemini latency
+         complaint this time instead of just capping it: gemini-3.5-flash-lite
+         is ~1-2s typical vs 3.1-flash-lite's 5-9s, with a ~500/day free
+         quota -- measured, not guessed. And implemented real query
+         answering ("kitna parle g bacha hai" -> actual qty + days of
+         cover) instead of always pointing at the dashboard. Every fix
+         verified against the real server or DB directly. Re-ran the
+         original 3 demo sentences and the full Playwright suite -- still
+         all green.
 ```
 

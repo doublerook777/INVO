@@ -22,7 +22,8 @@ def confirm(actions):
     priced = [a for a in actions if a.get("cost_per_unit")]
     if priced:
         a = priced[0]
-        line += f"\n{a['sku_name']} ka rate ₹{a['cost_per_unit'] / 100:.0f} save kar liya."
+        label = "kharid rate" if a["type"] == "stock_in" else "bech rate"
+        line += f"\n{a['sku_name']} ka {label} ₹{a['cost_per_unit'] / 100:.0f} save kar liya."
     if any(not a.get("unit_confident", True) for a in actions):
         line += "\n(Unit pakka nahi tha -- check kar lijiye.)"
     return line
@@ -60,3 +61,10 @@ def confirm_unit_label(qty, canonical_unit):
 
 def query_reply():
     return "Abhi sirf stock add/kam karna samajh aata hai. Current stock dashboard par dekhiye."
+
+
+def stock_level(sku_name, qty, unit, cover):
+    qty_txt = f"{_fmt(qty)} {unit}"
+    if cover is None:
+        return f"{sku_name} ka abhi {qty_txt} bacha hai."
+    return f"{sku_name} ka abhi {qty_txt} bacha hai, karib {cover:.1f} din chalega."

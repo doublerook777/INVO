@@ -44,8 +44,11 @@ def alerts(shop_id):
         avg, cover = days_of_cover(shop_id, s["id"], s["current_qty"])
         if status_for(s["current_qty"], cover) == "ok":
             continue
-        # Order enough for two more weeks, rounded to something a human would say.
-        suggested = max(1, round(avg * WINDOW_DAYS))
+        # Order enough to TOP UP to two weeks of cover -- not two weeks from
+        # scratch. Ignoring current_qty here meant a shop with 5 units left
+        # (and 14 days of average sales = 20) got told to order 20 more,
+        # instead of the 15 actually needed to reach the same target.
+        suggested = max(1, round(avg * WINDOW_DAYS - s["current_qty"]))
         days_txt = "aaj" if not cover or cover < 1 else f"{int(cover)} din mein"
         out.append({
             "sku_id": s["id"],
