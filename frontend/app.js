@@ -20,6 +20,8 @@ const input  = document.getElementById("input");
 const sendEl = document.getElementById("send");
 const micEl  = document.getElementById("mic");
 const fileEl = document.getElementById("audiofile");
+const attachEl = document.getElementById("attach");
+const imageEl  = document.getElementById("imagefile");
 
 const now = () =>
   new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -48,6 +50,14 @@ function voiceBubble(seconds = 4) {
        <span class="wave">${bars}</span>
        <span style="font-size:11px">0:0${seconds}</span></div>`,
     { ticks: true });
+}
+
+/* A photo bubble for a supplier bill, so the screenshot shows the input. */
+function imageBubble(file) {
+  const url = URL.createObjectURL(file);
+  const row = bubble("out", `<img class="photo" src="${url}" alt="bill">`, { ticks: true });
+  row.querySelector("img").onload = () => { scroll(); };
+  return row;
 }
 
 function transcriptLine(text) {
@@ -93,13 +103,14 @@ let inFlight = false;
 // `label` is what the user sees in their own bubble when the sent text is a
 // machine value (an option tap sends `sku:12`, but the bubble should read as
 // the item name they tapped).
-async function send(text, audioBlob, label) {
+async function send(text, audioBlob, label, imageFile) {
   if (inFlight) return;
   inFlight = true;
-  sendEl.disabled = micEl.disabled = input.disabled = true;
+  sendEl.disabled = micEl.disabled = attachEl.disabled = input.disabled = true;
 
   try {
     if (audioBlob) voiceBubble();
+    else if (imageFile) imageBubble(imageFile);
     else if (text) bubble("out", escapeHtml(label || text), { ticks: true });
 
     input.value = "";
@@ -110,6 +121,7 @@ async function send(text, audioBlob, label) {
     body.append("sender", SENDER);
     if (text) body.append("text", text);
     if (audioBlob) body.append("audio", audioBlob, "note.webm");
+    if (imageFile) body.append("image", imageFile, imageFile.name || "bill.jpg");
 
     let res;
     try {
@@ -149,7 +161,7 @@ async function send(text, audioBlob, label) {
     refresh();
   } finally {
     inFlight = false;
-    sendEl.disabled = micEl.disabled = input.disabled = false;
+    sendEl.disabled = micEl.disabled = attachEl.disabled = input.disabled = false;
   }
 }
 
@@ -239,6 +251,14 @@ micEl.onclick = async () => {
   micEl.textContent = "⏹";
 };
 fileEl.onchange = e => e.target.files[0] && send(null, e.target.files[0]);
+
+/* ---------- bill photo ---------- */
+attachEl.onclick = () => imageEl.click();
+imageEl.onchange = e => {
+  const f = e.target.files[0];
+  e.target.value = "";   // so picking the same file twice still fires
+  if (f) send(null, undefined, undefined, f);
+};
 
 /* ---------- demo shortcuts ---------- */
 const DEMO = [

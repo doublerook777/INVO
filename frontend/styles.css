@@ -103,15 +103,15 @@ body {
 
 .composer {
   background: var(--wa-panel); padding: 8px 10px 12px;
-  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
 }
 .composer input {
-  flex: 1; background: var(--wa-in); border: none; outline: none;
+  flex: 1; min-width: 0; background: var(--wa-in); border: none; outline: none;
   color: var(--wa-text); padding: 11px 15px; border-radius: 21px; font-size: 14.5px;
 }
 .composer button {
-  width: 42px; height: 42px; border-radius: 50%; border: none;
-  background: var(--wa-teal); color: #fff; font-size: 17px; cursor: pointer;
+  width: 38px; height: 38px; border-radius: 50%; border: none;
+  background: var(--wa-teal); color: #fff; font-size: 16px; cursor: pointer;
   display: grid; place-items: center; flex-shrink: 0;
 }
 .composer button:hover { background: #02705c; }
@@ -155,3 +155,5 @@ tr.out  td:first-child { box-shadow: inset 3px 0 var(--out); }
 .alert b { color: var(--low); }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) { body { flex-direction: column; } .side { width: 390px; } }
+
+.bubble img.photo { display: block; max-width: 220px; max-height: 260px; border-radius: 8px; margin-bottom: 4px; }
