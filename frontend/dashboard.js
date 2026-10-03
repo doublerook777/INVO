@@ -7,19 +7,24 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g,
 async function load() {
   let inv, al;
   try {
-    [inv, al] = await Promise.all([
-      fetch(`${API}/api/inventory`).then(r => r.json()),
-      fetch(`${API}/api/alerts`).then(r => r.json()),
+    const [invRes, alRes] = await Promise.all([
+      fetch(`${API}/api/inventory`),
+      fetch(`${API}/api/alerts`),
     ]);
+    [inv, al] = await Promise.all([invRes.json(), alRes.json()]);
+    if (!invRes.ok || !alRes.ok) throw new Error(inv.error || al.error || `HTTP ${invRes.status}/${alRes.status}`);
   } catch (e) {
     document.getElementById("stock").innerHTML =
-      `<tr><td colspan="5" style="color:#f87171">Backend offline — start uvicorn on :8000</td></tr>`;
+      `<tr><td colspan="5" style="color:#f87171">${esc(String(e.message || e))}</td></tr>`;
     return;
   }
 
   const items = inv.items;
   const low = items.filter(i => i.status === "low").length;
   const out = items.filter(i => i.status === "out").length;
+  // current_qty is canonical units; cost_per_unit is whatever rate was last
+  // keyed in. If that rate conversion changes on the backend, this number
+  // moves with it -- not a frontend bug, just a dependency worth knowing.
   const value = items.reduce((s, i) => s + i.current_qty * i.cost_per_unit, 0) / 100;
 
   document.getElementById("stats").innerHTML = `

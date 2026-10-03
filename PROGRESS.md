@@ -12,9 +12,9 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 
 | | Dev A (Ayush) — backend brain | Dev B — interface & edges |
 |---|---|---|
-| Current task | `extract.py` DONE and verified live. Moving to stub endpoints / docs freeze | ASR + polish the UI |
+| Current task | Backend + shared contract solid. Frontend fixed on Dev B's behalf to unblock Screenshot 2 — read `GIT_WORKFLOW.md` before your first commit | `asr.py`, `routes/whatsapp.py`, `ocr.py` — see punch list below |
 | Blocked on | nothing | needs `SARVAM_API_KEY` |
-| Last commit | Gemini live, model switched to `gemini-3.1-flash-lite` | initial scaffold |
+| Last commit | Frontend bug fixes + GIT_WORKFLOW.md | initial scaffold |
 
 **Overall: T+0:00. Working skeleton committed and tested end to end.**
 
@@ -71,28 +71,26 @@ Verified working right now:
 - [~] `routes/whatsapp.py` — text path done; **media download TODO(Dev B)** *(cut second)*
 - [ ] ngrok tunnel live
 
-### Dev B — bugs found in review, not yet fixed
+### Dev B — bugs found in review
 
-Found during a pass over `frontend/*`, `asr.py`, `routes/whatsapp.py`. These are
-your files — I didn't touch them. The contract side of #2 (handling `new`/
-`cancel`) is done on my end already, see above.
+Found during a pass over `frontend/*`, `asr.py`, `routes/whatsapp.py`.
 
-**`frontend/app.js` — fix before Screenshot 2:**
-- [ ] Option buttons send `btn.textContent` (the label), not `btn.dataset.value`. Only works today because names happen to substring-match. Send the `value` field.
-- [ ] No in-flight guard on `send()` — sending twice fast, or tapping an option mid-request, interleaves responses and races the pending-question state.
-- [ ] `res.json()` on a non-2xx response throws before you can read the real error (now fixed server-side to always send `{"error": ...}` — check `res.ok` first and show the status).
-- [ ] `escapeHtml` exists but isn't used on `a.sku_name` / `o.label` / `o.value` in `receipt()` / `optionButtons()` — raw `innerHTML` today.
-- [ ] `sender` is hardcoded `"web-demo"` — every browser tab shares one pending-question. Use a per-tab id in `sessionStorage`.
-- [ ] Mic stream can leak if `MediaRecorder` throws after `getUserMedia` succeeds — stop the tracks in that catch path.
-- [ ] No-permission mic click silently opens the file picker — show a message first.
-- [ ] `shop_id` is never sent (fine for demo, contract lists it as required).
+**`frontend/app.js` and `dashboard.js` — FIXED by Dev A** (you asked me to, so
+we'd both have a working base to start from — I don't normally touch your
+files, see `GIT_WORKFLOW.md`):
+- [x] Option buttons now send `btn.dataset.value` (`sku:<id>` / `new` / `cancel`), not the label.
+- [x] `send()` has an in-flight guard — the send button, mic, and input disable while a request is pending, so double-sends and mid-request taps are no-ops instead of races.
+- [x] Errors check `res.ok` and show the real status instead of throwing on `res.json()`.
+- [x] `escapeHtml` is now used on `a.sku_name`, `o.label`, `o.value` — no more raw `innerHTML` from catalog text.
+- [x] `sender` is now a per-tab id in `sessionStorage`, not a shared `"web-demo"`.
+- [x] Mic stream always gets stopped now, even if `MediaRecorder` throws after `getUserMedia` succeeds.
+- [x] No-mic-permission click shows a message before opening the file picker.
+- [x] `shop_id` is sent now.
+- [x] `.slice(0, 14)` removed from the live stock panel — the panel already scrolls (`.side { overflow-y: auto }`), the slice was just hiding items for no reason.
+- [x] `dashboard.js` checks `res.ok` on both requests now, same fix as app.js.
+- Verified with a headless-browser test (Playwright): ask-once flow end to end, double-click guard, HTML-injection attempt in an item name, mic-permission denial message, dashboard row count. All 10 checks passed. Stock-value formula (`current_qty * cost_per_unit`) left as-is — that's a backend unit-cost question, not a frontend bug, noted inline in the code.
 
-**`frontend/dashboard.js`:**
-- [ ] Stock value is `current_qty * cost_per_unit` — shows ₹0 for zero-cost seeded items, and the number will shift if cost handling changes.
-- [ ] Same swallowed-error problem as app.js — "Backend offline" on any failure, not just a dead server.
-- [ ] `.slice(0, 14)` truncates the panel — a low-stock item past position 14 is invisible. Either scroll the panel or sort low-stock-first.
-
-**`asr.py` — test as soon as the Sarvam key lands:**
+**`asr.py` — still yours, test as soon as the Sarvam key lands:**
 - [ ] MIME is hardcoded `audio/ogg`; the browser actually sends webm. Pass the real MIME through.
 - [ ] Sarvam call (model name, field names, `language_code`) has never run against the real API — same situation `extract.py` was in. Budget time to hit the same kind of surprises I did (deprecated names, quota limits, schema drift).
 - [ ] `hi-IN` may not be the right language code for code-mixed Hinglish — worth a quick test against `unknown`/`en-IN` too.
@@ -182,4 +180,10 @@ Format: `HH:MM — who — what`
          unknown item -> "cancel" -> no stock change. docs/api-contract.md
          updated with the error shape and the new/cancel answer convention.
          Dev B's frontend/asr/whatsapp bugs are listed above for them to fix.
+01:45 — A — fixed Dev B's app.js/dashboard.js bugs directly (by request, so
+         we'd both have a solid base before Dev B starts). Verified with a
+         headless-browser Playwright run, not just reading the code -- 10/10
+         checks passed. Added GIT_WORKFLOW.md: no branches, commit to main,
+         stick to file ownership, PROGRESS.md is append-only. Read it before
+         your next commit.
 ```

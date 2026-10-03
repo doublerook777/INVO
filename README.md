@@ -60,6 +60,7 @@ cd frontend && python3 -m http.server 5500
 | [`IMPLEMENTATION.md`](./IMPLEMENTATION.md) | Architecture, file structure, tools, setup |
 | [`PROGRESS.md`](./PROGRESS.md) | Live status. **Update this as you work.** |
 | [`docs/api-contract.md`](./docs/api-contract.md) | Frozen API shapes — read before coding |
+| [`GIT_WORKFLOW.md`](./GIT_WORKFLOW.md) | Branching, commits, who touches what — read before your first commit |
 
 ## Team
 
