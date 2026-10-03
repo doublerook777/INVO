@@ -100,7 +100,7 @@ Verified working right now:
 - [x] Dashboard — low stock rows in red
 - [x] `asr.py` — rewritten against Sarvam's current API (model name was deprecated, same as Gemini's), keyterms wired to the catalog. **Fully verified live**: two real voice notes ("paanch amul aaye", "das maggi bik gaye") transcribed perfectly, through the actual `/api/chat` voice upload path end to end (transcribe → Gemini extract → resolve → ledger write). `mode=translit` confirmed correct, no longer a guess.
 - [x] Voice input in the UI (mic + file-upload fallback) — untested without a key
-- [ ] `ocr.py` — bill photo *(cut first if short on time)*
+- [x] `ocr.py` — bill photo: Gemini vision, tested end to end incl. UI attach button *(cut first if short on time)*
 - [~] `routes/whatsapp.py` — text + voice-note path coded and tested locally; **real WhatsApp replies BLOCKED by the Twilio trial account, see Known issues** *(cut second)*
 - [ ] ngrok tunnel live
 
@@ -333,5 +333,13 @@ Format: `HH:MM — who — what`
          belongs to another account and our creds get 401 (see Known issues).
          whatsapp.py now logs the HTTP status. Voice screenshot will come from
          the web UI mic instead.
+05:00 — B — ocr.py done. Gemini vision (same key/model as extract.py) reads a bill
+         photo into ONE Hinglish line ("aaj aaye: 20 packet Parle-G, 2 dozen
+         Maggi, ...") that goes through the normal pipeline, so units/aliases/
+         ask-once all apply. Non-bill photos raise -> chat.py's friendly reply.
+         Added a camera button to the chat UI. Tested with a generated bill:
+         4 items booked, 2 dozen Maggi -> 24 packets; a non-bill gets
+         "Bill padhne mein dikkat aa gayi". Not tested on a real photographed
+         bill (glare/angle/handwriting) -- try one before relying on it.
 ```
 
