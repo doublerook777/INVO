@@ -91,7 +91,7 @@ Verified working right now:
 - [x] `asr.py` — rewritten against Sarvam's current API (model name was deprecated, same as Gemini's), keyterms wired to the catalog. **Fully verified live**: two real voice notes ("paanch amul aaye", "das maggi bik gaye") transcribed perfectly, through the actual `/api/chat` voice upload path end to end (transcribe → Gemini extract → resolve → ledger write). `mode=translit` confirmed correct, no longer a guess.
 - [x] Voice input in the UI (mic + file-upload fallback) — untested without a key
 - [ ] `ocr.py` — bill photo *(cut first if short on time)*
-- [~] `routes/whatsapp.py` — text path done; **media download TODO(Dev B)** *(cut second)*
+- [x] `routes/whatsapp.py` — text + voice-note path done (unverified against real Twilio) *(cut second)*
 - [ ] ngrok tunnel live
 
 ### Dev B — bugs found in review
@@ -122,11 +122,11 @@ files, see `GIT_WORKFLOW.md`):
 - [x] Whisper gets a prompt hint with the exact Hinglish style and brand names we need — deliberately **not** pinning `language=hi`, since that tends to push Whisper toward Devanagari output, the opposite of what the pipeline expects. Whisper itself is still unverified (no `OPENAI_API_KEY` tested) — low priority, Sarvam is the primary path and it works.
 
 **`routes/whatsapp.py`:**
-- [ ] Voice notes aren't handled — `MediaUrl0` is never downloaded. This is the headline feature over WhatsApp; it's currently a no-op on audio.
-- [ ] `int(NumMedia)` can 500 if Twilio sends something unexpected — guard it.
+- [x] Voice notes aren't handled — `MediaUrl0` is never downloaded. This is the headline feature over WhatsApp; it's currently a no-op on audio.
+- [x] `int(NumMedia)` can 500 if Twilio sends something unexpected — guard it.
 - [ ] No `X-Twilio-Signature` check (fine for the demo, flag it if anyone asks).
-- [ ] The async handler calls `pipeline.handle_message`, which is sync SQLite — blocks the event loop per request. Fine at demo traffic, not production.
-- [ ] TwiML replies are text-only — the ask-once options/buttons never reach WhatsApp. Sandbox users have to type the answer in words, which the backend now handles (`new`/`cancel`/free text all work), but make sure the question text itself spells out the choices in words since there are no buttons.
+- [x] The async handler calls `pipeline.handle_message`, which is sync SQLite — blocks the event loop per request. Fine at demo traffic, not production.
+- [x] TwiML replies are text-only — the ask-once options/buttons never reach WhatsApp. Sandbox users have to type the answer in words, which the backend now handles (`new`/`cancel`/free text all work), but make sure the question text itself spells out the choices in words since there are no buttons.
 - [ ] Webhook sender is `whatsapp:+91...`, different from the web UI's `web-demo` — the two surfaces don't share pending-question state. Expected, just worth knowing for the demo script.
 
 **`ocr.py`:** not implemented (`NotImplementedError`). First on the cut list — leave it unless everything else is done early.
@@ -258,4 +258,12 @@ Format: `HH:MM — who — what`
          DB, no learned alias yet). asr.py is DONE -- no longer a guess on
          translit vs codemix, confirmed with real audio. Screenshot 1 can
          now be shot with an actual voice note instead of typed text.
+03:00 — B — whatsapp.py: voice notes now work end to end in code. Downloads
+         MediaUrl0 with Twilio basic auth (redirect to CDN, 15MB cap), passes
+         real content type to asr.transcribe, runs pipeline in a threadpool,
+         guards NumMedia, echoes the transcript, and appends the typable
+         answer words (names / new / nahi / haan) to ask-once questions since
+         WhatsApp has no buttons. Tested locally: mocked Twilio form posts,
+         and the media fetch against a local auth+redirect server. NOT tested
+         against real Twilio/ngrok yet. Signature check still skipped.
 ```
