@@ -91,7 +91,7 @@ Verified working right now:
 - [x] `asr.py` — rewritten against Sarvam's current API (model name was deprecated, same as Gemini's), keyterms wired to the catalog. **Fully verified live**: two real voice notes ("paanch amul aaye", "das maggi bik gaye") transcribed perfectly, through the actual `/api/chat` voice upload path end to end (transcribe → Gemini extract → resolve → ledger write). `mode=translit` confirmed correct, no longer a guess.
 - [x] Voice input in the UI (mic + file-upload fallback) — untested without a key
 - [ ] `ocr.py` — bill photo *(cut first if short on time)*
-- [x] `routes/whatsapp.py` — text + voice-note path done (unverified against real Twilio) *(cut second)*
+- [~] `routes/whatsapp.py` — text + voice-note path coded and tested locally; **real WhatsApp replies BLOCKED by the Twilio trial account, see Known issues** *(cut second)*
 - [ ] ngrok tunnel live
 
 ### Dev B — bugs found in review
@@ -173,7 +173,8 @@ _Append as you hit them. Saves the other person an hour._
 | **`gemini-3.8-flash` free tier is only 20 requests/day** -- we burned it in ~15 minutes of testing | Switched `GEMINI_MODEL` in `extract.py` to `gemini-3.1-flash-lite`, which has a much higher free quota. If you add a key and extract() silently falls back to rules every time, check for a 429 in the server log -- that's quota, not a code bug |
 | Without an enum on the `unit` field, Gemini invented plausible-looking units like `"units"` that `units.py` doesn't recognize, silently degrading to the low-confidence path | `GEMINI_SCHEMA`'s `unit` field is now constrained to the exact list `units.py` understands (`UNIT_ENUM`), and the prompt tells the model to default to `"packet"` for a bare count |
 | Gemini read `"paanch amul bike"` (sold) as `intent: unknown` and folded the verb into the item name | Prompt now explicitly lists which verbs mean `stock_in` vs `stock_out`, matching the same vocabulary `_rule_extract` already used |
-
+| **Twilio trial ("Try out WhatsApp", +1 737 250 8034) never delivers the bot's reply.** Inbound reaches us fine (ngrok + backend log show Twilio's POST, we return valid TwiML `text/xml`, HTTP 200), but nothing outbound appears in Twilio's Message Logs or on the phone. Twilio logs error 12300 on the inbound messages. Direct API send fails with `ContentSid Required`; creating our own template via Content API fails with code 20003 "not available on a Trial account"; the Send tab only offers the sample "Appointment Reminders" template; Monitor/Alerts API also trial-locked so no error detail. Not proven that TwiML replies are blocked, but every sign points to the trial allowing only the sample template | **Use the web chat UI for the demo** (roadmap cut list: "real Twilio -- web UI screenshots identically"). `whatsapp.py` is complete and should work unchanged once the account is upgraded. Dev A: worth a second pair of eyes -- if you have a different Twilio account/number (paid, or the classic +1 415 523 8886 sandbox), point it at the webhook (ngrok http 8000, POST /api/whatsapp/webhook) and see if replies arrive |
+| Gemini extraction takes **6-10 s per message** (measured `extract("do amul aaye")` = 9.7 s, webhook round trips 4-10 s) | Not a Twilio problem (its answer timeout is 30 s) but noticeable in chat. Dev A: maybe check `thinkingBudget`/model latency or add a timeout/fallback to rules |
 ---
 
 ## Log
@@ -266,4 +267,12 @@ Format: `HH:MM — who — what`
          WhatsApp has no buttons. Tested locally: mocked Twilio form posts,
          and the media fetch against a local auth+redirect server. NOT tested
          against real Twilio/ngrok yet. Signature check still skipped.
+03:45 — B — Tried real WhatsApp via Twilio sandbox + ngrok (static domain). Text
+         and voice reach the backend and are processed (log + ngrok inspector
+         confirm), but the reply never reaches the phone: trial account only
+         allows the sample template (ContentSid Required on REST send, Content
+         API and Monitor API both trial-locked, no error text available).
+         Details + what to try in Known issues. whatsapp.py also now returns
+         text/xml (Twilio's documented TwiML type); harmless, did not fix it.
+         ngrok stopped. Falling back to web UI for Screenshots 1-3, then ocr.py.
 ```
