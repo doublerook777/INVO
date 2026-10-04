@@ -2,8 +2,6 @@
 
 **A WhatsApp agent that keeps a kirana shop's stock register, by voice.**
 
-HackSprint 2026 — Track 1 (FinTech & Smart Commerce)
-
 ---
 
 ## The one-line pitch
