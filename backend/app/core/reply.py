@@ -1,7 +1,7 @@
 """Hinglish reply strings.
 
 Keep replies short and in Latin-script Hinglish. "20 Parle-G add ho gaye" beats
-"20 units of Parle-G have been added to inventory." Judges notice the difference.
+"20 units of Parle-G have been added to inventory." Shop owners notice the difference.
 
 Dev A owns this file.
 """

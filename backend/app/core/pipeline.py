@@ -1,7 +1,7 @@
 """The orchestrator. Every message -- WhatsApp, web, curl -- comes through here.
 
-This function knows nothing about WhatsApp. That's deliberate: if the Twilio
-integration dies at hour 4, we lose a transport, not the product.
+This function knows nothing about WhatsApp. That's deliberate: if one
+integration (say Twilio) breaks, we lose a transport, not the product.
 
 Dev A owns this file.
 """

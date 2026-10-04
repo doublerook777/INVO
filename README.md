@@ -4,7 +4,7 @@
 
 ---
 
-## The one-line pitch
+## In one line
 
 Shop owners already send voice notes all day. We just listen to them and keep the stock register for them.
 
@@ -54,7 +54,7 @@ cd frontend && python3 -m http.server 5500
 
 | File | What's in it |
 |---|---|
-| [`ROADMAP.md`](./ROADMAP.md) | 6-hour plan, hour by hour, who does what |
+| [`ROADMAP.md`](./ROADMAP.md) | Plan, phases, who does what |
 | [`IMPLEMENTATION.md`](./IMPLEMENTATION.md) | Architecture, file structure, tools, setup |
 | [`PROGRESS.md`](./PROGRESS.md) | Live status. **Update this as you work.** |
 | [`docs/api-contract.md`](./docs/api-contract.md) | Frozen API shapes — read before coding |

@@ -1,5 +1,5 @@
-/* WhatsApp-ish chat UI. No framework, no CDN -- hackathon wifi can die and this
-   still renders. Dev B owns this file. */
+/* WhatsApp-ish chat UI. No framework, no CDN -- it still renders with
+   no network. Dev B owns this file. */
 :root {
   --wa-green: #005c4b; --wa-teal: #008069; --wa-bg: #0b141a;
   --wa-in: #202c33;    --wa-panel: #111b21; --wa-text: #e9edef;

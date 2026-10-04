@@ -19,9 +19,9 @@ handle_message(shop_id, sender, text=None, audio=None, image=None) -> reply_text
 WhatsApp is one caller. The web chat UI is another caller. A curl command is a
 third. They all hit the same `POST /api/chat`.
 
-Why this matters for a hackathon: WhatsApp API access is the single most likely
-thing to block us. With this shape, if Twilio fights us at hour 4, we lose a
-*transport* and still have a working product to screenshot.
+Why this matters: WhatsApp API access is the single most likely thing to block
+us. With this shape, if Twilio gets in the way, we lose a *transport* and still
+have a working product.
 
 ### Flow
 
@@ -73,13 +73,12 @@ thing to block us. With this shape, if Twilio fights us at hour 4, we lose a
 
 ### Why SQLite and not Postgres + pgvector
 
-We planned pgvector originally. For a 6-hour build it's the wrong call:
-setup cost, a service to run, and a dependency that can fail on a laptop at
-hour 3.
+We considered pgvector originally. At this stage it's the wrong call: setup
+cost, a service to run, and a dependency that can fail on a laptop.
 
 `rapidfuzz` string matching over a per-shop alias table gets us ~the same
-demo quality on kirana item names, with zero infrastructure. Embeddings are a
-post-hackathon upgrade, and the resolver interface is written so it can be
+quality on kirana item names, with zero infrastructure. Embeddings are a
+later upgrade, and the resolver interface is written so it can be
 swapped without touching anything else.
 
 ### The resolver (the actual hard part)
@@ -110,7 +109,7 @@ Make sure the demo shows this.
 ```
 invo/
 ├── README.md
-├── ROADMAP.md               # 6-hour plan + work split
+├── ROADMAP.md               # plan + work split
 ├── IMPLEMENTATION.md        # this file
 ├── PROGRESS.md              # <-- UPDATE THIS AS YOU WORK
 ├── .env.example
@@ -148,9 +147,9 @@ invo/
 │   └── styles.css
 │
 ├── docs/
-│   └── api-contract.md            # FROZEN at T+0:30
+│   └── api-contract.md            # FROZEN after initial setup
 │
-└── screenshots/                   # the actual Round 1 deliverable
+└── screenshots/                   # product screenshots
 ```
 
 `[A]` = Dev A owns it. `[B]` = Dev B owns it. **Don't edit the other person's files.**
@@ -193,21 +192,21 @@ pending_asks   (id, shop_id, sender, question, candidates_json,
 | Fallback ASR | OpenAI Whisper API | if Sarvam key doesn't come through |
 | Bill OCR | Gemini vision | same key as extraction, one less thing |
 | WhatsApp | Twilio WhatsApp Sandbox | ~15 min to a working two-way loop |
-| Frontend | Plain HTML + hand-written CSS | **no build step, no CDN** — works even if the venue wifi dies |
+| Frontend | Plain HTML + hand-written CSS | **no build step, no CDN** — works even with no network |
 | Tunnel | ngrok | expose localhost to the Twilio webhook |
 
 ### Why Twilio sandbox over Meta Cloud API
 
-Meta is the "real" integration and where this would go in production. For today,
+Meta is the "real" integration and where this would go in production. For now,
 Twilio wins on setup time: account → sandbox → send a join code from your phone →
 point the webhook at ngrok. Roughly 15 minutes versus Meta's app creation plus
 per-tester phone number verification.
 
-A judge cannot tell the difference from a screenshot.
+The chat looks identical to the user either way.
 
 **One thing to know:** WhatsApp only allows free-form business-initiated messages
 within 24 hours of the user's last message. Our proactive "stock khatam ho raha hai"
-nudge is business-initiated. During a demo this is a non-issue — you'll have
+nudge is business-initiated. In a live demo this is a non-issue — you'll have
 messaged the bot minutes earlier, so the window is open. **Do not burn time on
 template approval.** Just don't be surprised if the scheduled job goes quiet after
 sitting idle overnight.

@@ -1,8 +1,8 @@
 """When will this run out?
 
 Deliberately NOT machine learning. Average daily sales over the last 14 days,
-divided into what's left. A judge asking "is this really AI?" gets a better
-answer from an honest heuristic than from an overfit model trained on 30 rows.
+divided into what's left. An honest, explainable heuristic beats an
+overfit model trained on a couple of weeks of one shop's data.
 
 Dev A owns this file.
 """

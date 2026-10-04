@@ -1,6 +1,6 @@
 # API contract
 
-**Frozen at T+0:30.** After that, no field renames without telling the other dev.
+**Frozen after initial setup.** From here, no field renames without telling the other dev.
 
 Base URL: `http://localhost:8000`
 
@@ -52,7 +52,7 @@ At least one of `text` / `audio` / `image` must be present.
 | Field | Meaning |
 |---|---|
 | `reply` | the Hinglish text to show in the chat bubble |
-| `transcript` | what we heard, if audio. `null` for text messages. Show it greyed above the bubble — judges love seeing the ASR output |
+| `transcript` | what we heard, if audio. `null` for text messages. Show it greyed above the bubble — showing the ASR output builds trust |
 | `needs_answer` | `true` when the bot asked a clarifying question. Dev B: render the `options` as tappable buttons |
 | `actions` | what actually changed. Dev B can render these as a little receipt card |
 | `debug` | never shown to the user; handy during the demo |

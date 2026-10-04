@@ -15,7 +15,7 @@ function escapeHtml(s) {
     c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
-// Show the last 4 digits only: this page ends up in screenshots and slides.
+// Show the last 4 digits only: this page may be screenshotted or shown on a projector.
 function masked(sender) {
   const digits = (sender || "").replace(/\D/g, "");
   return digits.length >= 4 ? `+${digits.slice(0, 2)} ••••• ${digits.slice(-4)}` : "WhatsApp";

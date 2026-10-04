@@ -2,7 +2,7 @@
 
 Read this before you touch quantities. If a 'peti' gets written to the ledger as
 1 instead of 24, every profit number downstream is silently wrong and nobody
-notices until the judge asks.
+notices until someone checks the books.
 
 Dev A owns this file.
 """

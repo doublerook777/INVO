@@ -16,7 +16,7 @@ bottom with the time. Don't write essays — the next agent needs facts, not pro
 | Blocked on | nothing | nothing code-side; WhatsApp demo blocked on Twilio trial restrictions |
 | Last commit | 8 bugs fixed: cost/sell-price conversion, negative stock, reorder math, real query answering, junk-unit guard, unit re-check after SKU answer, Gemini model swap for real speed | whatsapp.py: voice notes + TwiML content-type |
 
-**Overall: T+0:00. Working skeleton committed and tested end to end.**
+**Overall: working skeleton committed and tested end to end.**
 
 The scaffold is further along than a blank repo: the chat flow, the resolver, the
 seed data and both UI pages already run. What is NOT done is marked `TODO(Dev A)`
@@ -27,17 +27,17 @@ Verified working right now:
   -> both items booked, 46 saved as the new atta rate
 - `do peti coke aaye` -> 48 pieces (unit conversion)
 - `do amul aaye` -> bot asks Butter or Milk -> answer -> **asks again? no.**
-- 5 items already low, so the alert screenshot has real content
+- 5 items already low, so the low-stock alert has real content
 - **Real voice notes, end to end** — a real WhatsApp-style voice note
   ("paanch amul aaye") uploaded to `/api/chat` transcribes correctly via
-  Sarvam and resolves/books correctly. **Screenshot 1 can be shot with a real
+  Sarvam and resolves/books correctly. **The hero flow can be shown with a real
   voice note now, not a typed message.**
 
 ---
 
 ## Checklist
 
-### Shared (T+0:00 → T+0:30)
+### Shared (setup)
 - [x] Scaffold built, tested, pushed
 - [ ] Both have the repo cloned and backend running
 - [ ] `docs/api-contract.md` read together and frozen
@@ -150,7 +150,6 @@ files, see `GIT_WORKFLOW.md`):
 - [ ] **Screenshot 3** — dashboard with red low-stock alert
 - [ ] Screenshots saved to `screenshots/`
 - [ ] Everything pushed
-- [ ] PPT slides 2, 3, 5, 6 filled
 
 ---
 
@@ -159,10 +158,10 @@ files, see `GIT_WORKFLOW.md`):
 | Decision | Reason |
 |---|---|
 | Near-tie rule in the resolver | `amul` scores 90 against *both* Butter and Milk; picking the top one silently books the wrong item |
-| Hand-written CSS, no Tailwind CDN | venue wifi dying shouldn't take the UI down |
-| SQLite, not Postgres+pgvector | 6 hours; no service to run; swap later |
+| Hand-written CSS, no Tailwind CDN | a network outage shouldn't take the UI down |
+| SQLite, not Postgres+pgvector | no service to run; swap later |
 | rapidfuzz, not embeddings | good enough for kirana names, zero setup |
-| Plain HTML + hand-written CSS, no React | no build step to break at hour 5 |
+| Plain HTML + hand-written CSS, no React | no build step to break |
 | Twilio sandbox, not Meta Cloud API | ~15 min setup vs. Meta's verification flow |
 | Money stored as integer paise | float rupees will produce wrong totals |
 | No barcode scanning | most kirana stock isn't barcoded |
@@ -309,7 +308,7 @@ Format: `HH:MM — who — what`
          WhatsApp senders only) + frontend/whatsapp.html/.js (phone-frame view of
          the stored conversation, phone number masked, labelled "read-only
          mirror"). Added one include_router line to main.py -- Dev A, FYI, shout
-         if you'd rather own that. Slides must say replies are shown here because
+         if you'd rather own that. Docs should say replies are shown here because
          the Twilio trial can't deliver them. Tested with simulated webhook posts.
 04:45 — A — Dev B's fourth review pass: 8 more confirmed bugs, all fixed.
          Real ones this time, not edge cases: cost wasn't converted to the

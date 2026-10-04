@@ -1,21 +1,21 @@
 # Git workflow
 
-Two people, one repo, ~6 hours. This is not a process for a real team — it's
-the minimum needed so neither of us loses work or blocks the other.
+Two people, one repo. This is deliberately a lightweight process — the minimum
+needed so neither of us loses work or blocks the other.
 
 ---
 
 ## 0. One-time setup
 
-Repo: `git@github.com:ayushrai-10/invo.git` (private).
+Repo: `git@github.com:doublerook777/INVO.git` (private).
 
-- Dev A (Ayush) adds Dev B as a collaborator: repo → Settings → Collaborators → Add.
-- Dev B accepts the invite, then clones:
+- The repo owner adds the other dev as a collaborator: repo → Settings → Collaborators → Add.
+- Accept the invite, then clone:
   ```bash
-  git clone git@github.com:ayushrai-10/invo.git
+  git clone git@github.com:doublerook777/INVO.git
   ```
 - Both run `git config pull.rebase true` once, so every future `git pull`
-  rebases instead of creating a merge commit. Merge commits make a 6-hour
+  rebases instead of creating a merge commit. Merge commits make the
   history unreadable and conflict more often than a clean rebase does.
 
 ---
@@ -53,7 +53,7 @@ conflict resolved under time pressure.
 | File | Rule |
 |---|---|
 | `routes/chat.py` | Dev A wrote it first; it should rarely need to change again. If you think it does, say so before editing — this file is the one place a silent conflict would actually break the contract both of you depend on. |
-| `docs/api-contract.md` | Frozen at T+0:30. After that, no field renames or shape changes without telling the other dev **first**, not after. Adding a new documented error case or clarifying a line is fine solo. |
+| `docs/api-contract.md` | Frozen after initial setup. From here, no field renames or shape changes without telling the other dev **first**, not after. Adding a new documented error case or clarifying a line is fine solo. |
 | `PROGRESS.md` | See section 3 — this is the one file both of us edit constantly, so it gets its own rule. |
 
 ---
@@ -115,12 +115,11 @@ git push
 
 ---
 
-## 6. Last 30–45 minutes: freeze
+## 6. Before a demo or release: freeze
 
 Stop pushing new logic. Only:
-- Take the three screenshots (`docs/demo-script.md`).
-- Fix something that's visibly broken for the demo.
-- Fill in the PPT.
+- Run the key flows (`docs/demo-script.md`) and capture screenshots.
+- Fix something that's visibly broken.
 
-A late push that breaks the one thing you need to screenshot is the single
-most avoidable way to lose points on Round 1.
+A late push that breaks the one flow you need to show is the single most
+avoidable way to ruin a demo.

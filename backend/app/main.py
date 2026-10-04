@@ -9,8 +9,8 @@ from .routes import chat, inventory, messages, whatsapp
 app = FastAPI(title="Invo", version="0.1.0",
               description="WhatsApp inventory agent for kirana shops")
 
-# Wide open on purpose -- it's a hackathon demo, and a CORS error at hour 5
-# costs more than this risk does.
+# Wide open on purpose: single demo shop, no auth, and the frontend is served
+# from a different port. Tighten this before any real deployment.
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_credentials=True,
     allow_methods=["*"], allow_headers=["*"],

@@ -3,8 +3,7 @@
 Run:  python -m app.seed        (add --reset to wipe first)
 
 The history is NOT optional. Without it, avg_daily_sales is 0, days-of-cover is
-undefined, and the low-stock alert -- one of our three screenshots -- never
-fires. Seed early, not at hour 5.
+undefined, and the low-stock alert never fires. Seed before anything else.
 
 Dev A owns this file.
 """
@@ -88,7 +87,7 @@ def seed():
 
     from .core.reorder import alerts
     a = alerts(shop_id)
-    log(f"{len(a)} items are already low -- the alert screenshot will have content")
+    log(f"{len(a)} items are already low -- the low-stock alert will have content")
     for x in a[:5]:
         log(f"   {x['name']}: {x['days_of_cover']} days left")
     return shop_id
